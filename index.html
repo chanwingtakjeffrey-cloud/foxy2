@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Foxy Web 2.0 - 經典 P2P 搜尋與共享平台</title>
+    <!-- 引入 Tailwind CSS 用於高速美化介面 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Lucide 圖標庫 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- 鎖定 WebTorrent v1 最穩定版本，確保瀏覽器 WebRTC P2P 高速傳輸 -->
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@1.9.7/dist/webtorrent.min.js"></script>
+    <!-- 引入 MQTT.js，建立去中心化的 P2P 搜尋與即時人數網路 -->
+    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+    <style>
+        /* 經典 Foxy 2000年代金屬銀拉絲背景 */
+        .foxy-metallic-bg {
+            background: linear-gradient(180deg, #eae9e6 0%, #d8d6d1 50%, #c4c1ba 100%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 8px 30px rgba(0,0,0,0.5);
+        }
+        /* 左側經典粉紫色控制面板 */
+        .foxy-sidebar-pink {
+            background: linear-gradient(90deg, #e5a9db 0%, #d991cd 100%);
+            border-right: 2px solid #b373a6;
+        }
+        /* 經典頂部與分頁的高亮粉紫色調 */
+        .foxy-accent-purple {
+            background-color: #a25285;
+        }
+        .foxy-text-purple {
+            color: #a25285;
+        }
+        /* 模擬 Windows 視窗邊框與經典按鈕 */
+        .retro-inset-shadow {
+            box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.3), inset -2px -2px 4px rgba(255, 255, 255, 0.9);
+        }
+        .retro-outset-shadow {
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.2), -1px -1px 2px rgba(255,255,255,0.9);
+        }
+        /* 隱藏滾動條但保持功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-[#1c335e] text-slate-800 min-h-screen font-sans flex items-center justify-center p-0 md:p-4">
+
+    <!-- Foxy 主程式模擬視窗外殼 -->
+    <div class="w-full max-w-6xl foxy-metallic-bg rounded-lg border-2 border-[#a19e95] flex flex-col overflow-hidden shadow-2xl" style="height: 92vh; min-height: 600px;">
+        
+        <!-- 頂部標題列 (仿 Windows 視窗標題) -->
+        <div class="bg-gradient-to-r from-[#d9d6ce] via-[#eae7e0] to-[#c7c4bc] px-3 py-1 flex justify-between items-center border-b border-[#a19e95] text-xs font-semibold select-none">
+            <div class="flex items-center space-x-1.5">
+                <span class="text-sm">🦊</span>
+                <span class="text-slate-700 font-bold tracking-wide" data-i18n="app_title">FOXY - 點對點極速檔案傳輸與共享 [Web 2.0]</span>
+            </div>
+            <!-- 右上角 Windows 視窗三鍵 -->
+            <div class="flex space-x-1">
+                <button class="w-5 h-4 bg-[#f0eee9] hover:bg-slate-200 border border-[#b2b0a7] flex items-center justify-center text-[9px] shadow-sm font-bold">－</button>
+                <button class="w-5 h-4 bg-[#f0eee9] hover:bg-slate-200 border border-[#b2b0a7] flex items-center justify-center text-[9px] shadow-sm font-bold">☐</button>
+                <button class="w-5 h-4 bg-[#e26252] hover:bg-red-600 border border-[#a13b2e] flex items-center justify-center text-[9px] text-white shadow-sm font-bold">✕</button>
+            </div>
+        </div>
+
+        <!-- 頂部功能與搜尋區域 -->
+        <div class="px-4 py-3 bg-[#e3e1da] border-b border-[#b3b1a7] flex flex-col md:flex-row justify-between items-center gap-3">
+            <!-- 經典 Foxy Logo -->
+            <div class="flex items-center space-x-3 select-none flex-shrink-0">
+                <div class="w-10 h-10 bg-white rounded-full border border-[#b5b2a9] flex items-center justify-center shadow-inner">
+                    <span class="text-3xl animate-pulse">🦊</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black italic tracking-wider text-slate-800 flex items-center gap-1.5" style="font-family: 'Arial Black', sans-serif;">
+                        FOXY <span class="text-[10px] not-italic font-bold bg-[#a25285] text-white px-1.5 py-0.5 rounded">WEB</span>
+                    </h1>
+                </div>
+            </div>
+
+            <!-- 頂部經典全域搜尋列 -->
+            <div class="flex items-center w-full max-w-2xl bg-white rounded border border-[#a6a49b] px-1.5 py-1 shadow-inner">
+                <input type="text" id="header-search-input" class="w-full text-sm text-slate-800 focus:outline-none px-2 placeholder-slate-400" data-i18n-placeholder="search_placeholder" placeholder="請輸入關鍵字搜尋公開資源...">
+                <div class="h-5 w-[1px] bg-slate-300 mx-2"></div>
+                <!-- 經典類別下拉選單 -->
+                <select id="search-filter" class="bg-transparent text-xs text-slate-600 focus:outline-none cursor-pointer pr-2">
+                    <option value="all">🔍 全部</option>
+                    <option value="music">🎵 音樂</option>
+                    <option value="video">🎬 影片</option>
+                    <option value="doc">📄 文件</option>
+                </select>
+                <!-- 經典搜尋按鈕 -->
+                <button onclick="triggerHeaderSearch()" class="ml-2 px-5 py-1 bg-[#eae7e0] hover:bg-slate-200 text-slate-700 text-xs font-bold border border-[#a19e95] rounded shadow-sm transition-all flex items-center gap-1 flex-shrink-0">
+                    <span data-i18n="search_btn">搜尋</span>
+                </button>
+            </div>
+
+            <!-- 連線狀態燈號 -->
+            <div class="flex items-center space-x-2.5 text-[11px] font-medium flex-shrink-0">
+                <div class="flex items-center space-x-1.5 bg-[#f0eee9] px-2.5 py-1 rounded border border-[#bcaea4]">
+                    <span id="p2p-status-dot" class="h-2 w-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                    <span id="p2p-status-text" class="text-slate-600" data-i18n="p2p_starting">P2P 啟動中</span>
+                </div>
+                <div class="flex items-center space-x-1.5 bg-[#f0eee9] px-2.5 py-1 rounded border border-[#bcaea4]">
+                    <span id="net-status-dot" class="h-2 w-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                    <span id="net-status-text" class="text-slate-600" data-i18n="net_disconnected">搜尋網路未連接</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中間核心功能區域 -->
+        <div class="flex-1 flex overflow-hidden">
+            
+            <!-- 左側：Foxy 經典垂直粉紫側邊選單 -->
+            <div class="w-24 sm:w-28 foxy-sidebar-pink flex flex-col pt-4 px-1.5 space-y-3 flex-shrink-0 select-none">
+                <!-- 搜索分頁按鈕 -->
+                <button onclick="switchTab('search')" id="tab-search-btn" class="w-full py-2.5 flex flex-col items-center justify-center rounded-lg bg-gradient-to-b from-[#a25285] to-[#7f3b64] text-white font-bold text-xs shadow-md border-b-2 border-[#5c2446] transition-all transform active:scale-95">
+                    <i data-lucide="search" class="h-5 w-5 mb-1 text-pink-200"></i>
+                    <span data-i18n="tab_search">搜索</span>
+                </button>
+
+                <!-- 下載分頁按鈕 -->
+                <button onclick="switchTab('downloads')" id="tab-downloads-btn" class="w-full py-2.5 flex flex-col items-center justify-center rounded-lg bg-white/40 text-[#5c2446] hover:bg-white/60 hover:text-white font-bold text-xs border border-[#b373a6] transition-all relative transform active:scale-95">
+                    <i data-lucide="download" class="h-5 w-5 mb-1 text-[#a25285]"></i>
+                    <span data-i18n="tab_downloads">下載</span>
+                    <span id="active-badge" class="hidden absolute top-1 right-1.5 h-2.5 w-2.5 bg-green-500 rounded-full animate-ping"></span>
+                </button>
+
+                <!-- 共享分頁按鈕 -->
+                <button onclick="switchTab('share')" id="tab-share-btn" class="w-full py-2.5 flex flex-col items-center justify-center rounded-lg bg-gradient-to-b from-[#a25285] to-[#7f3b64] text-white font-bold text-xs shadow-md border-b-2 border-[#5c2446] transition-all transform active:scale-95">
+                    <i data-lucide="folder-heart" class="h-5 w-5 mb-1 text-pink-200"></i>
+                    <span data-i18n="tab_share">共享</span>
+                </button>
+            </div>
+
+            <!-- 右側：主內容展示區 -->
+            <div class="flex-1 bg-white p-4 overflow-y-auto no-scrollbar flex flex-col">
+                
+                <!-- TAB 1: 搜索面板 -->
+                <div id="tab-search" class="space-y-4 flex flex-col h-full">
+                    <div class="flex items-center space-x-2 border-b border-slate-200 pb-2">
+                        <i data-lucide="globe-2" class="h-5 w-5 foxy-text-purple"></i>
+                        <span class="text-sm font-bold text-slate-700" data-i18n="search_channel_title">公共 P2P 搜尋引擎廣播頻道</span>
+                    </div>
+
+                    <!-- 搜尋結果表格 -->
+                    <div class="flex-1 overflow-auto rounded border border-slate-300 shadow-inner bg-[#faf9f6]">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gradient-to-b from-[#f0eee9] to-[#e3e1da] border-b border-slate-300 text-xs text-slate-600 font-bold select-none sticky top-0">
+                                    <th class="p-2 border-r border-slate-300 w-1/2" data-i18n="th_name">檔案名稱</th>
+                                    <th class="p-2 border-r border-slate-300 w-1/6" data-i18n="th_size">檔案大小</th>
+                                    <th class="p-2 border-r border-slate-300 w-1/6" data-i18n="th_source">在線來源</th>
+                                    <th class="p-2 text-center w-1/6" data-i18n="th_action">傳輸操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="search-results-list" class="text-xs divide-y divide-slate-200">
+                                <!-- 預設提示 -->
+                                <tr id="search-placeholder">
+                                    <td colspan="4" class="text-center py-24 text-slate-400">
+                                        <i data-lucide="search" class="h-12 w-12 mx-auto mb-3 opacity-30 text-slate-500"></i>
+                                        <p class="text-xs" data-i18n="search_placeholder_text">請在上方搜尋框輸入關鍵字，開始搜索全球在線 P2P 共享檔案！</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB 2: 下載（傳輸監控台） -->
+                <div id="tab-downloads" class="hidden space-y-4 flex flex-col h-full">
+                    <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="activity" class="h-5 w-5 text-green-600"></i>
+                            <span class="text-sm font-bold text-slate-700" data-i18n="download_monitor_title">下載與上傳任務監控台</span>
+                        </div>
+                        <span id="global-speed-badge" class="text-xs bg-[#f0eee9] border border-slate-300 px-3 py-1 rounded font-mono text-slate-600">
+                            上傳: 0.00 KB/S | 下載: 0.00 KB/S
+                        </span>
+                    </div>
+
+                    <!-- 任務傳輸列表 -->
+                    <div class="flex-1 overflow-auto space-y-3 pr-1" id="transfer-list">
+                        <!-- 預設空狀態 -->
+                        <div id="downloads-placeholder" class="text-center py-24 border border-dashed border-slate-300 rounded-lg text-slate-400">
+                            <i data-lucide="arrow-down-to-line" class="h-10 w-10 mx-auto mb-3 opacity-30"></i>
+                            <p class="text-xs" data-i18n="download_placeholder_text">目前沒有任何傳輸任務正在進行中。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: 共享中心 -->
+                <div id="tab-share" class="hidden space-y-4 flex flex-col h-full">
+                    <div class="flex items-center space-x-2 border-b border-slate-200 pb-2">
+                        <i data-lucide="folder-open" class="h-5 w-5 text-orange-500"></i>
+                        <span class="text-sm font-bold text-slate-700" data-i18n="share_manager_title">本地資料夾與檔案共享管理庫</span>
+                    </div>
+
+                    <!-- 雙核心共享選項 -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- 資料夾共享按鈕 -->
+                        <div onclick="document.getElementById('folder-input').click()" class="border-2 border-dashed border-slate-300 hover:border-[#a25285] bg-[#faf9f6] hover:bg-[#fff7fc] rounded-lg p-5 text-center cursor-pointer transition-all">
+                            <i data-lucide="folder-plus" class="h-8 w-8 mx-auto mb-2 text-[#a25285]"></i>
+                            <h3 class="font-bold text-xs text-slate-700" data-i18n="share_folder_btn">分享整台電腦資料夾</h3>
+                            <p class="text-[10px] text-slate-500 mt-1" data-i18n="share_folder_desc">選定一個專屬資料夾，裡面所有檔案將對外發布！</p>
+                        </div>
+
+                        <!-- 檔案共享按鈕 -->
+                        <div onclick="document.getElementById('file-input').click()" class="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-[#faf9f6] hover:bg-blue-50/40 rounded-lg p-5 text-center cursor-pointer transition-all">
+                            <i data-lucide="file-plus" class="h-8 w-8 mx-auto mb-2 text-blue-500"></i>
+                            <h3 class="font-bold text-xs text-slate-700" data-i18n="share_files_btn">分享複數個特定檔案</h3>
+                            <p class="text-[10px] text-slate-500 mt-1" data-i18n="share_files_desc">自由選擇並放行您想要單獨與海外好友分享的檔案</p>
+                        </div>
+                    </div>
+
+                    <!-- 安全性說明 -->
+                    <div class="p-3 bg-blue-50 border border-blue-200 text-[11px] text-blue-700 rounded-lg leading-relaxed" data-i18n="security_sandbox_text">
+                        <span class="font-bold">🔒 安全沙盒技術說明：</span>
+                        本網頁僅在您「開啟分頁期間」進行做種共享，且只能存取您主動加入的資料夾或檔案。我們絕對無法、也絕對不會在背景掃描 or 讀取您的其他隱私磁碟。
+                    </div>
+
+                    <!-- 正在做種共享清單 -->
+                    <div class="flex-1 flex flex-col min-h-0">
+                        <span class="text-xs font-bold text-slate-500 mb-2" data-i18n="share_list_title">● 您目前正在與公眾分享的目錄與項目：</span>
+                        <div id="shared-items-list" class="flex-1 overflow-auto space-y-2 pr-1 min-h-0">
+                            <!-- 空狀態 -->
+                            <div id="shared-placeholder" class="text-center py-10 bg-slate-50 rounded border border-slate-200 text-slate-400 text-xs" data-i18n="share_placeholder_text">
+                                尚未分享任何檔案。趕快利用上方選項選取檔案/資料夾吧！
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 底部狀態列 (仿 Foxy 經典狀態列) -->
+        <div class="bg-[#eae7e0] border-t border-[#b5b2a9] px-4 py-1.5 flex flex-row justify-between items-center text-xs font-medium select-none text-slate-600">
+            <!-- 下載速率 -->
+            <div class="flex items-center space-x-2 bg-white/60 px-3 py-0.5 rounded border border-[#cac7bf] shadow-sm">
+                <i data-lucide="arrow-down-circle" class="h-3.5 w-3.5 text-blue-600"></i>
+                <span id="status-dl-speed" class="font-mono text-[11px]">↓ 0.00 KB/S.</span>
+            </div>
+
+            <!-- 在線人數 (MQTT真實心跳計數) -->
+            <div class="flex items-center space-x-2 bg-white/60 px-4 py-0.5 rounded border border-[#cac7bf] shadow-sm">
+                <i data-lucide="users" class="h-3.5 w-3.5 foxy-text-purple"></i>
+                <span id="status-online-users" class="font-bold text-[11px]">1 人在線 (真實)</span>
+            </div>
+
+            <!-- 右側設定與說明圖示 (包含語言選單彈窗) -->
+            <div class="flex items-center space-x-3 relative">
+                <!-- 設定齒輪按鈕 -->
+                <button onclick="toggleSettingsMenu(event)" class="hover:text-slate-800 transition-colors focus:outline-none" title="設定">
+                    <i data-lucide="settings" class="h-4 w-4"></i>
+                </button>
+
+                <!-- 設定選單彈出浮窗 -->
+                <div id="settings-menu" class="hidden absolute bottom-8 right-0 bg-[#eae7e0] border-2 border-[#a19e95] rounded shadow-2xl p-3 w-52 text-xs text-slate-700 z-50 text-left">
+                    <div class="font-bold border-b border-[#b5b2a9] pb-1.5 mb-2 flex items-center justify-between">
+                        <span data-i18n="settings_title">FOXY 系統設定</span>
+                        <button onclick="toggleSettingsMenu(event)" class="text-slate-500 hover:text-slate-800 font-bold">✕</button>
+                    </div>
+                    <!-- 語言選擇項目 -->
+                    <div class="space-y-2">
+                        <label class="block font-semibold text-slate-600" data-i18n="settings_lang">語言 / Language</label>
+                        <div class="flex items-center space-x-1 bg-white px-2 py-1 rounded border border-[#a6a49b] shadow-inner">
+                            <i data-lucide="languages" class="h-3.5 w-3.5 text-[#a25285] flex-shrink-0"></i>
+                            <select id="lang-select" onchange="changeLanguage(this.value); toggleSettingsMenu(event);" class="bg-transparent text-xs font-bold text-[#a25285] focus:outline-none cursor-pointer w-full">
+                                <option value="zh">正體中文</option>
+                                <option value="en">English</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- 擬真版其他設定 -->
+                    <div class="mt-3 pt-2 border-t border-[#b5b2a9] text-[9px] text-slate-500 text-center">
+                        FOXY Web 2.0 Engine v1.9.7
+                    </div>
+                </div>
+
+                <!-- 說明問號按鈕 -->
+                <button onclick="triggerHelpToast()" class="hover:text-slate-800 transition-colors" title="幫助說明">
+                    <i data-lucide="help-circle" class="h-4 w-4"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 輕量通知訊息 Toast -->
+    <div id="toast-box" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm"></div>
+
+    <!-- 安全隔離：隱藏的 File Input 放到 Body 最下層，防止點擊氣泡循環 Bug -->
+    <input type="file" id="folder-input" class="hidden" webkitdirectory directory multiple>
+    <input type="file" id="file-input" class="hidden" multiple>
+
+    <script>
+        // 1. 初始化語言包字典 (支援正體中文 zh 與 英文 en)
+        const i18n = {
+            zh: {
+                app_title: "FOXY - 點對點極速檔案傳輸與共享 [Web 2.0]",
+                search_placeholder: "請輸入關鍵字搜尋公開資源...",
+                search_btn: "搜尋",
+                search_all: "🔍 全部",
+                search_music: "🎵 音樂",
+                search_video: "🎬 影片",
+                search_doc: "📄 文件",
+                p2p_active: "P2P 引擎就緒",
+                p2p_starting: "P2P 啟動中",
+                p2p_unsupported: "瀏覽器不支援 P2P",
+                net_connected: "搜尋網路已連接",
+                net_disconnected: "搜尋網路未連接",
+                net_failed: "搜尋連線失敗",
+                net_offline: "搜尋網路離線",
+                tab_search: "搜索",
+                tab_downloads: "下載",
+                tab_share: "共享",
+                search_channel_title: "公共 P2P 搜尋引擎廣播頻道",
+                th_name: "檔案名稱",
+                th_size: "檔案大小",
+                th_source: "在線來源",
+                th_action: "傳輸操作",
+                search_placeholder_text: "請在上方搜尋框輸入關鍵字，開始搜索全球在線 P2P 共享檔案！",
+                download_monitor_title: "下載與上傳任務監控台",
+                download_placeholder_text: "目前沒有任何傳輸任務正在進行中。",
+                share_manager_title: "本地資料夾與檔案共享管理庫",
+                share_folder_btn: "分享整台電腦資料夾",
+                share_folder_desc: "選定一個專屬資料夾，裡面所有檔案將對外發布！",
+                share_files_btn: "分享複數個特定檔案",
+                share_files_desc: "自由選擇並放行您想要單獨與海外好友分享的檔案",
+                security_sandbox_text: "🔒 安全沙盒技術說明：本網頁僅在您「開啟分頁期間」進行做種共享，且只能存取您主動加入的資料夾或檔案。我們絕對無法、也絕對不會在背景掃描 or 讀取您的其他隱私磁碟。",
+                share_list_title: "● 您目前正在與公眾分享的目錄與項目：",
+                share_placeholder_text: "尚未分享任何檔案。趕快利用上方選項選取檔案/資料夾吧！",
+                
+                // 設定彈窗翻譯
+                settings_title: "FOXY 系統設定",
+                settings_lang: "選擇語言 / Language",
+
+                // 動態邏輯翻譯
+                online_suffix: " 人在線 (真實)",
+                nodes_badge: "1 節點",
+                download_action_btn: "下載",
+                broadcasting_search: "正在對全球 P2P 節點廣播搜尋「{query}」...",
+                no_match_found: "未找到匹配的共享項目。請確保您好友已匯入該檔案並開啟網頁中。",
+                entire_folder_label: " (整個資料夾)",
+                multi_files_label: "等 {count} 個檔案",
+                seeding_init: "正在為「{name}」建立做種指紋與元數據...",
+                seed_success: "已成功開始向公眾分享「{name}」！",
+                seeding_status: "正在做種中",
+                contains_files: "包含 {count} 個檔案",
+                total_size_label: "總大小: ",
+                copy_magnet_btn: "複製磁力",
+                sharing_stopped: "已成功停止該檔案做種與外部直連分享",
+                task_exists_err: "該下載項所在的資料夾/資源包已在傳輸任務中！",
+                connecting_p2p_download: "正在連接 P2P 網路直連通道，請求下載「{name}」...",
+                connecting: "連接中",
+                calculating: "計算中...",
+                searching_nodes: "正在尋找在線節點...",
+                eta_label: "剩餘時間: {time}",
+                eta_calculating: "剩餘時間: 計算中",
+                transfer_done: "100% 傳輸完畢",
+                dl_speed_lbl: "下載: {speed}/S",
+                ul_speed_lbl: "上傳: {speed}/S",
+                peers_lbl: "節點: {count}",
+                save_file_btn: "存檔",
+                download_success: "🎉 檔案「{name}」傳輸成功！",
+                download_ready_save: "傳輸完成，已可以存檔",
+                download_cancel_info: "已成功取消本下載任務",
+                alert_search_keyword: "⚠️ 請先輸入搜尋關鍵字！",
+                alert_join_p2p: "🎉 已成功加入全球 Foxy P2P 搜尋網路！",
+                alert_unsupported: "⚠️ 警告：您的瀏覽器可能不支援 P2P WebRTC，推薦使用 Chrome / Safari / Edge",
+                alert_settings_opt: "⚙️ 已自動為您優化 P2P 連接與最大寬頻速率。",
+                alert_help_opt: "💡 說明：請維持網頁開啟。複製好友的磁力連結或點擊下載按鈕即可傳輸！"
+            },
+            en: {
+                app_title: "FOXY - Peer-to-Peer Fast File Transfer & Share [Web 2.0]",
+                search_placeholder: "Enter keywords to search public resources...",
+                search_btn: "Search",
+                search_all: "🔍 All",
+                search_music: "🎵 Music",
+                search_video: "🎬 Video",
+                search_doc: "📄 Doc",
+                p2p_active: "P2P Engine Ready",
+                p2p_starting: "P2P Starting",
+                p2p_unsupported: "P2P Unsupported",
+                net_connected: "Search Net Connected",
+                net_disconnected: "Search Net Disconnected",
+                net_failed: "Search Net Failed",
+                net_offline: "Search Net Offline",
+                tab_search: "Search",
+                tab_downloads: "Downloads",
+                tab_share: "Share",
+                search_channel_title: "Public P2P Search Engine Broadcast Channel",
+                th_name: "File Name",
+                th_size: "File Size",
+                th_source: "Online Sources",
+                th_action: "Action",
+                search_placeholder_text: "Please enter keywords in the search bar above to start searching global online P2P shared files!",
+                download_monitor_title: "Download & Upload Task Monitor",
+                download_placeholder_text: "No transfer tasks are currently in progress.",
+                share_manager_title: "Local Folders & Files Sharing Manager",
+                share_folder_btn: "Share Entire Folder",
+                share_folder_desc: "Select a dedicated folder, and all files inside will be shared publicly!",
+                share_files_btn: "Share Multiple Specific Files",
+                share_files_desc: "Freely select and authorize files you want to share with overseas friends",
+                security_sandbox_text: "🔒 Security Sandbox Note: This webpage only seeds files while it is open, and can only access folders or files you actively choose to add. We absolutely cannot and will never scan or read other private files on your hard drive in the background.",
+                share_list_title: "● Directories and items you are currently sharing with the public:",
+                share_placeholder_text: "No files shared yet. Select files/folders above to start sharing!",
+                
+                // Settings Popover Translation
+                settings_title: "FOXY System Settings",
+                settings_lang: "Select Language / 語言",
+
+                // Dynamic translation
+                online_suffix: " Peers Online (Real)",
+                nodes_badge: "1 Node",
+                download_action_btn: "Download",
+                broadcasting_search: "Broadcasting search query for \"{query}\" to global P2P nodes...",
+                no_match_found: "No matching shared items found. Make sure your friend has imported the file and kept the webpage open.",
+                entire_folder_label: " (Entire Folder)",
+                multi_files_label: "and {count} other files",
+                seeding_init: "Creating seed hash and metadata for '{name}'...",
+                seed_success: "Successfully started sharing '{name}' with the public!",
+                seeding_status: "Seeding",
+                contains_files: "Contains {count} files",
+                total_size_label: "Total Size: ",
+                copy_magnet_btn: "Copy Magnet",
+                sharing_stopped: "Successfully stopped seeding and public direct-sharing for this file",
+                task_exists_err: "The folder/resource package of this download is already in the transfer task!",
+                connecting_p2p_download: "Connecting to P2P network direct channel, requesting download for '{name}'...",
+                connecting: "Connecting",
+                calculating: "Calculating...",
+                searching_nodes: "Searching for online nodes...",
+                text_online_real: "Real",
+                eta_label: "ETA: {time}",
+                eta_calculating: "ETA: Calculating",
+                transfer_done: "100% Transfer Finished",
+                dl_speed_lbl: "Download: {speed}/S",
+                ul_speed_lbl: "Upload: {speed}/S",
+                peers_lbl: "Peers: {count}",
+                save_file_btn: "Save",
+                download_success: "🎉 File '{name}' transferred successfully!",
+                download_ready_save: "Transfer complete. Ready to save.",
+                download_cancel_info: "Successfully canceled this download task",
+                alert_search_keyword: "⚠️ Please enter a keyword first!",
+                alert_join_p2p: "🎉 Successfully joined the global Foxy P2P search network!",
+                alert_unsupported: "⚠️ Warning: Your browser may not support P2P WebRTC. Chrome / Safari / Edge is recommended",
+                alert_settings_opt: "⚙️ Automatically optimized P2P connection & bandwidth rates for you.",
+                alert_help_opt: "💡 Hint: Please keep the webpage open. Copy your friend's magnet link or click download to transfer!"
+            }
+        };
+
+        let currentLang = 'zh';
+
+        // 語系變更切換引擎
+        function changeLanguage(lang) {
+            currentLang = lang;
+            
+            // 1. 翻譯所有帶有 data-i18n 屬性的靜態與動態文字
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang] && i18n[lang][key]) {
+                    const textSpan = el.querySelector('span');
+                    if (textSpan) {
+                        textSpan.textContent = i18n[lang][key];
+                    } else {
+                        el.textContent = i18n[lang][key];
+                    }
+                }
+            });
+
+            // 2. 翻譯所有 input 的 placeholder
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (i18n[lang] && i18n[lang][key]) {
+                    el.setAttribute('placeholder', i18n[lang][key]);
+                }
+            });
+
+            // 3. 更新搜尋類別下拉選單
+            const searchFilter = document.getElementById('search-filter');
+            if (searchFilter) {
+                searchFilter.options[0].text = i18n[lang]['search_all'];
+                searchFilter.options[1].text = i18n[lang]['search_music'];
+                searchFilter.options[2].text = i18n[lang]['search_video'];
+                searchFilter.options[3].text = i18n[lang]['search_doc'];
+            }
+
+            // 4. 重繪動態列表與狀態，確保所有資料即時轉換
+            updateConnectionUI();
+            renderSharedItems();
+            updateOnlineCountUI();
+        }
+
+        // 初始化 Lucide 圖標
+        lucide.createIcons();
+
+        // 產生本機 Peer ID
+        const myClientId = 'foxy_' + Math.random().toString(36).substr(2, 9);
+        
+        // 1. 初始化 WebTorrent
+        const client = new WebTorrent();
+
+        // 全域 P2P 錯誤監聽，防止做種時有任何不支援的特殊檔案造成默默崩潰
+        client.on('error', function (err) {
+            console.error('WebTorrent Global Error:', err);
+            showToast("P2P Engine Error: " + err.message, "error");
+            
+            // 如果此時有卡在背景雜湊計算的暫時項目，立即清空並還原畫面
+            if (tempSharedProcessing.length > 0) {
+                tempSharedProcessing = [];
+                renderSharedItems();
+            }
+        });
+
+        // 初始化 MQTT 連線
+        const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+
+        // 設定 P2P Trackers (標準 WebRTC Tracker 連線池)
+        const announceList = [
+            'wss://tracker.openwebtorrent.com',
+            'wss://tracker.btorrent.xyz',
+            'wss://tracker.fastcast.nz',
+            'wss://tracker.files.fm:7073/announce'
+        ];
+
+        // 共享、下載與真實在線節點狀態
+        const mySharedTorrents = {};
+        const mySharedFilesIndex = [];
+        const activeDownloads = {};
+        
+        // 紀錄正處於 P2P 檔案讀取、建立雜湊碼指紋的非同步過渡期佇列
+        let tempSharedProcessing = [];
+        
+        // MQTT 實時在線探測表 (100%真實)
+        const activePeers = new Set();
+        const peerLastSeen = {};
+
+        // 頁面載入初始化
+        window.onload = function() {
+            initMQTT();
+            updateP2PStatus();
+            initPresenceSystem();
+            
+            // 預設載入繁體中文
+            changeLanguage('zh');
+
+            // 監聽鍵盤事件：在搜尋框按下 Enter 鍵也能發送搜尋
+            document.getElementById('header-search-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    triggerHeaderSearch();
+                }
+            });
+            
+            // 每秒更新傳輸速率
+            setInterval(() => {
+                updateGlobalSpeeds();
+            }, 1000);
+
+            // 點擊外面任何地方時，自動關閉右下角設定浮窗
+            document.addEventListener('click', function(e) {
+                const menu = document.getElementById('settings-menu');
+                if (menu && !menu.classList.contains('hidden')) {
+                    if (!menu.contains(e.target) && !e.target.closest('button[onclick*="toggleSettingsMenu"]')) {
+                        menu.classList.add('hidden');
+                    }
+                }
+            });
+        };
+
+        // 開關齒輪設定選單彈出框
+        function toggleSettingsMenu(event) {
+            if (event) event.stopPropagation();
+            const menu = document.getElementById('settings-menu');
+            if (menu) {
+                menu.classList.toggle('hidden');
+            }
+        }
+
+        // 狀態與設定按鈕語系提示
+        function triggerSettingsToast() {
+            showToast(i18n[currentLang].alert_settings_opt, "success");
+        }
+
+        function triggerHelpToast() {
+            showToast(i18n[currentLang].alert_help_opt, "info");
+        }
+
+        // --- 去中心化真實人數探測系統核心 ---
+        function initPresenceSystem() {
+            sendHeartbeat();
+            setInterval(sendHeartbeat, 4000);
+            setInterval(cleanupOfflinePeers, 1000);
+        }
+
+        function sendHeartbeat() {
+            if (mqttConnected) {
+                const pingPayload = {
+                    clientId: myClientId,
+                    timestamp: Date.now()
+                };
+                mqttClient.publish('foxy_web_p2p_v2/presence', JSON.stringify(pingPayload));
+            }
+        }
+
+        function cleanupOfflinePeers() {
+            const now = Date.now();
+            let changed = false;
+            for (const clientId of activePeers) {
+                if (now - peerLastSeen[clientId] > 10000) {
+                    activePeers.delete(clientId);
+                    delete peerLastSeen[clientId];
+                    changed = true;
+                }
+            }
+            updateOnlineCountUI();
+        }
+
+        function updateOnlineCountUI() {
+            const totalOnline = activePeers.size + 1;
+            const userSpan = document.getElementById('status-online-users');
+            if (userSpan) {
+                userSpan.textContent = `${totalOnline}${i18n[currentLang].online_suffix}`;
+            }
+        }
+
+        // 更新連線狀態 UI 文字
+        let mqttConnected = false;
+        function updateConnectionUI() {
+            const netDot = document.getElementById('net-status-dot');
+            const netText = document.getElementById('net-status-text');
+            if (mqttConnected) {
+                netDot.className = "h-2 w-2 rounded-full bg-green-500 animate-pulse";
+                netText.textContent = i18n[currentLang].net_connected;
+            } else {
+                netDot.className = "h-2 w-2 rounded-full bg-yellow-500 animate-pulse";
+                netText.textContent = i18n[currentLang].net_disconnected;
+            }
+        }
+
+        function initMQTT() {
+            mqttClient.on('connect', () => {
+                mqttConnected = true;
+                updateConnectionUI();
+                showToast(i18n[currentLang].alert_join_p2p, "success");
+
+                mqttClient.subscribe('foxy_web_p2p_v2/search');
+                mqttClient.subscribe('foxy_web_p2p_v2/presence');
+                mqttClient.subscribe(`foxy_web_p2p_v2/response/${myClientId}`);
+            });
+
+            mqttClient.on('error', (err) => {
+                console.error(err);
+                mqttConnected = false;
+                const netDot = document.getElementById('net-status-dot');
+                const netText = document.getElementById('net-status-text');
+                netDot.className = "h-2 w-2 rounded-full bg-red-500";
+                netText.textContent = i18n[currentLang].net_failed;
+            });
+
+            mqttClient.on('offline', () => {
+                mqttConnected = false;
+                const netDot = document.getElementById('net-status-dot');
+                const netText = document.getElementById('net-status-text');
+                netDot.className = "h-2 w-2 rounded-full bg-yellow-500";
+                netText.textContent = i18n[currentLang].net_offline;
+            });
+
+            mqttClient.on('message', (topic, message) => {
+                try {
+                    const data = JSON.parse(message.toString());
+                    if (topic === 'foxy_web_p2p_v2/presence') {
+                        if (data.clientId && data.clientId !== myClientId) {
+                            activePeers.add(data.clientId);
+                            peerLastSeen[data.clientId] = Date.now();
+                            updateOnlineCountUI();
+                        }
+                    } else if (topic === 'foxy_web_p2p_v2/search') {
+                        if (data.from === myClientId) return;
+                        handleSearchRequest(data);
+                    } else if (topic === `foxy_web_p2p_v2/response/${myClientId}`) {
+                        handleSearchResponse(data);
+                    }
+                } catch (e) {
+                    console.error('MQTT Packet Error:', e);
+                }
+            });
+        }
+
+        // P2P 核心狀態偵測
+        function updateP2PStatus() {
+            const p2pDot = document.getElementById('p2p-status-dot');
+            const p2pText = document.getElementById('p2p-status-text');
+            if (WebTorrent.WEBRTC_SUPPORT) {
+                p2pDot.className = "h-2 w-2 rounded-full bg-green-500 animate-pulse";
+                p2pText.textContent = i18n[currentLang].p2p_active;
+            } else {
+                p2pDot.className = "h-2 w-2 rounded-full bg-red-500";
+                p2pText.textContent = i18n[currentLang].p2p_unsupported;
+                showToast(i18n[currentLang].alert_unsupported, "error");
+            }
+        }
+
+        // 搜尋匹配邏輯
+        function handleSearchRequest(request) {
+            const query = request.query.toLowerCase().trim();
+            const filterType = request.filterType || 'all';
+            if (!query) return;
+
+            const matches = mySharedFilesIndex.filter(file => {
+                const nameMatches = file.name.toLowerCase().includes(query);
+                if (!nameMatches) return false;
+
+                if (filterType === 'all') return true;
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (filterType === 'music' && ['mp3', 'wav', 'flac', 'aac', 'm4a'].includes(ext)) return true;
+                if (filterType === 'video' && ['mp4', 'mkv', 'avi', 'mov', 'wmv'].includes(ext)) return true;
+                if (filterType === 'doc' && ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'].includes(ext)) return true;
+                return false;
+            });
+
+            if (matches.length > 0) {
+                const responsePayload = {
+                    senderId: myClientId,
+                    files: matches.map(f => ({
+                        name: f.name,
+                        size: f.size,
+                        path: f.path,
+                        magnetURI: f.magnetURI,
+                        infoHash: f.infoHash
+                    }))
+                };
+                mqttClient.publish(request.replyTo, JSON.stringify(responsePayload));
+            }
+        }
+
+        // 搜尋結果渲染
+        function handleSearchResponse(response) {
+            const resultsTable = document.getElementById('search-results-list');
+            const placeholder = document.getElementById('search-placeholder');
+            if (placeholder) placeholder.remove();
+
+            response.files.forEach(file => {
+                const rowId = `search-${file.infoHash}-${hashCode(file.path)}`;
+                if (document.getElementById(rowId)) return;
+
+                const tr = document.createElement('tr');
+                tr.id = rowId;
+                tr.className = "hover:bg-slate-50 transition-colors border-b border-slate-100";
+                tr.innerHTML = `
+                    <td class="p-2.5">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="file" class="h-4 w-4 text-slate-400 flex-shrink-0"></i>
+                            <div class="truncate max-w-xs sm:max-w-md">
+                                <span class="font-bold text-slate-700 block truncate" title="${file.name}">${file.name}</span>
+                                <span class="text-[9px] text-slate-400 block font-mono">Path: ${file.path}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-2.5 text-slate-600 font-mono text-[11px]">${formatBytes(file.size)}</td>
+                    <td class="p-2.5 text-slate-500 text-[11px]">
+                        <span class="inline-flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full text-[10px] border border-green-200">
+                            <span class="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span> ${i18n[currentLang].nodes_badge}
+                        </span>
+                    </td>
+                    <td class="p-2.5 text-center">
+                        <button onclick="startDownloadFromSearch('${encodeURIComponent(file.magnetURI)}', '${encodeURIComponent(file.path)}', '${encodeURIComponent(file.name)}')" class="px-3 py-1 bg-gradient-to-b from-[#a25285] to-[#8c3e70] text-white rounded text-[11px] font-bold shadow hover:brightness-105 active:scale-95 transition-all flex items-center gap-1 mx-auto">
+                            <i data-lucide="download-cloud" class="h-3 w-3"></i> <span data-i18n="download_action_btn">${i18n[currentLang].download_action_btn}</span>
+                        </button>
+                    </td>
+                `;
+                resultsTable.appendChild(tr);
+                lucide.createIcons();
+            });
+        }
+
+        // 搜尋點擊事件
+        function triggerHeaderSearch() {
+            const query = document.getElementById('header-search-input').value.trim();
+            const filterType = document.getElementById('search-filter').value;
+            
+            if (!query) {
+                showToast(i18n[currentLang].alert_search_keyword, "warning");
+                return;
+            }
+
+            switchTab('search');
+
+            const resultsTable = document.getElementById('search-results-list');
+            const searchNotifyText = i18n[currentLang].broadcasting_search.replace('{query}', query);
+            resultsTable.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-20 text-slate-500">
+                        <div class="flex items-center justify-center gap-1.5 mb-2">
+                            <span class="h-2 w-2 rounded-full bg-[#a25285] animate-bounce"></span>
+                            <span class="h-2 w-2 rounded-full bg-[#a25285] animate-bounce [animation-delay:0.15s]"></span>
+                            <span class="h-2 w-2 rounded-full bg-[#a25285] animate-bounce [animation-delay:0.3s]"></span>
+                        </div>
+                        <p class="text-[11px]">${searchNotifyText}</p>
+                    </td>
+                </tr>
+            `;
+
+            const payload = {
+                from: myClientId,
+                query: query,
+                filterType: filterType,
+                replyTo: `foxy_web_p2p_v2/response/${myClientId}`
+            };
+
+            mqttClient.publish('foxy_web_p2p_v2/search', JSON.stringify(payload));
+
+            // 5秒未找到回應時
+            setTimeout(() => {
+                if (resultsTable.children.length === 1 && resultsTable.firstElementChild.innerHTML.includes('animate-bounce')) {
+                    resultsTable.innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center py-20 text-slate-400">
+                                <i data-lucide="info" class="h-10 w-10 mx-auto mb-2 opacity-30 text-slate-500"></i>
+                                <p class="text-xs">${i18n[currentLang].no_match_found}</p>
+                            </td>
+                        </tr>
+                    `;
+                    lucide.createIcons();
+                }
+            }, 5000);
+        }
+
+        // 註冊安全隔離的 Input 監聽事件並修復 input 緩存不變不重載問題
+        document.getElementById('file-input').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                processSharedItems(e.target.files, false);
+                e.target.value = ''; // 選取後即刻重置，防止下次重複選取相同檔案時事件不發動
+            }
+        });
+
+        document.getElementById('folder-input').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                processSharedItems(e.target.files, true);
+                e.target.value = ''; // 選取後即刻重置
+            }
+        });
+
+        function processSharedItems(fileList, isFolder) {
+            const filesArray = Array.from(fileList);
+            if (filesArray.length === 0) return;
+
+            // 1. 生成人類可讀的做種顯示名稱
+            let shareName = filesArray[0].name;
+            let countText = "";
+            if (isFolder && filesArray[0].webkitRelativePath) {
+                shareName = filesArray[0].webkitRelativePath.split('/')[0] + i18n[currentLang].entire_folder_label;
+                countText = i18n[currentLang].contains_files.replace('{count}', filesArray.length);
+            } else if (filesArray.length > 1) {
+                shareName = filesArray[0].name + " " + i18n[currentLang].multi_files_label.replace('{count}', filesArray.length - 1);
+                countText = i18n[currentLang].contains_files.replace('{count}', filesArray.length);
+            } else {
+                countText = i18n[currentLang].contains_files.replace('{count}', 1);
+            }
+
+            // 2. 建立隨機臨時任務 ID 用於即時追蹤背景 Hashing 狀態
+            const tempId = 'temp_' + Math.random().toString(36).substr(2, 9);
+            const tempItem = {
+                id: tempId,
+                name: shareName,
+                countText: countText
+            };
+
+            // 3. 立即推入等待佇列並渲染，提供 100% 的即時視覺反饋
+            tempSharedProcessing.push(tempItem);
+            renderSharedItems();
+
+            const seedInitMsg = i18n[currentLang].seeding_init.replace('{name}', shareName);
+            showToast(seedInitMsg, "info");
+
+            // 4. 開始執行 WebTorrent 本地端做種與雜湊加密計算
+            try {
+                client.seed(filesArray, { announce: announceList }, function (torrent) {
+                    console.log('Seed Info Hash:', torrent.infoHash);
+                    
+                    // 做種成功，將此任務移出 Hashing 等待佇列
+                    tempSharedProcessing = tempSharedProcessing.filter(item => item.id !== tempId);
+                    
+                    mySharedTorrents[torrent.infoHash] = torrent;
+
+                    torrent.files.forEach(file => {
+                        mySharedFilesIndex.push({
+                            name: file.name,
+                            size: file.length,
+                            path: file.path,
+                            magnetURI: torrent.magnetURI,
+                            infoHash: torrent.infoHash
+                        });
+                    });
+
+                    // 重新更新列表
+                    renderSharedItems();
+                    const successMsg = i18n[currentLang].seed_success.replace('{name}', shareName);
+                    showToast(successMsg, "success");
+                });
+            } catch (err) {
+                console.error("Seed execution crash:", err);
+                // 排除錯誤，移出等待佇列
+                tempSharedProcessing = tempSharedProcessing.filter(item => item.id !== tempId);
+                renderSharedItems();
+                showToast("P2P Seed Error: " + err.message, "error");
+            }
+        }
+
+        // 繪製與翻譯共享管理清單 (升級：全面支援即時載入處理中任務繪製)
+        function renderSharedItems() {
+            const list = document.getElementById('shared-items-list');
+            if (!list) return;
+
+            const keys = Object.keys(mySharedTorrents);
+            
+            // 如果既沒有已完成的做種，也沒有正在背景雜湊加密中的項目
+            if (keys.length === 0 && tempSharedProcessing.length === 0) {
+                list.innerHTML = `
+                    <div id="shared-placeholder" class="text-center py-10 bg-slate-50 rounded border border-slate-200 text-slate-400 text-xs" data-i18n="share_placeholder_text">
+                        ${i18n[currentLang].share_placeholder_text}
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = "";
+
+            // 1. 先繪製正在做種準備與 Hash 運算中的項目
+            tempSharedProcessing.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "bg-amber-50 border border-amber-200 rounded p-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 text-xs animate-pulse";
+                div.innerHTML = `
+                    <div class="truncate max-w-md w-full">
+                        <span class="font-bold text-amber-800 block truncate" title="${item.name}">${item.name}</span>
+                        <div class="flex items-center space-x-2 mt-1.5 flex-wrap gap-y-1">
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 flex items-center gap-1 select-none">
+                                <span class="h-1.5 w-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                                <span>${currentLang === 'zh' ? '正在讀取並建立 P2P 雜湊值...' : 'Reading & calculating P2P hashes...'}</span>
+                            </span>
+                            <span class="text-[10px] text-slate-500">${item.countText}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 flex-shrink-0">
+                        <span class="text-amber-600 font-mono text-[11px] select-none">${currentLang === 'zh' ? '請稍候...' : 'Please wait...'}</span>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+
+            // 2. 繪製已經成功在 P2P 上架發布的項目
+            keys.forEach(hash => {
+                const torrent = mySharedTorrents[hash];
+                const div = document.createElement('div');
+                div.className = "bg-slate-50 border border-slate-200 rounded p-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 text-xs";
+                
+                const filesCountText = i18n[currentLang].contains_files.replace('{count}', torrent.files.length);
+
+                div.innerHTML = `
+                    <div class="truncate max-w-md w-full">
+                        <span class="font-bold text-slate-800 block truncate" title="${torrent.name}">${torrent.name}</span>
+                        <div class="flex items-center space-x-2 mt-1.5 flex-wrap gap-y-1">
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200" data-i18n="seeding_status">${i18n[currentLang].seeding_status}</span>
+                            <span class="text-[10px] text-slate-500">${filesCountText}</span>
+                            <span class="text-[10px] text-slate-400">${i18n[currentLang].total_size_label} ${formatBytes(torrent.length)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 flex-shrink-0">
+                        <button onclick="copyToClipboard('${torrent.magnetURI}')" class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-600 rounded border border-slate-300 text-[11px] font-semibold flex items-center gap-1 shadow-sm">
+                            <i data-lucide="link" class="h-3 w-3"></i> <span data-i18n="copy_magnet_btn">${i18n[currentLang].copy_magnet_btn}</span>
+                        </button>
+                        <button onclick="stopSharing('${hash}')" class="p-1 text-red-500 hover:bg-red-50 rounded border border-transparent hover:border-red-200" title="Stop Share">
+                            <i data-lucide="trash-2" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        // 終止共享
+        function stopSharing(hash) {
+            const torrent = mySharedTorrents[hash];
+            if (!torrent) return;
+
+            client.remove(hash, (err) => {
+                if (err) console.error(err);
+                delete mySharedTorrents[hash];
+                
+                for (let i = mySharedFilesIndex.length - 1; i >= 0; i--) {
+                    if (mySharedFilesIndex[i].infoHash === hash) {
+                        mySharedFilesIndex.splice(i, 1);
+                    }
+                }
+
+                renderSharedItems();
+                showToast(i18n[currentLang].sharing_stopped, "info");
+            });
+        }
+
+        // 下載檔案
+        function startDownloadFromSearch(encodedMagnet, encodedPath, encodedName) {
+            const magnetURI = decodeURIComponent(encodedMagnet);
+            const filePath = decodeURIComponent(encodedPath);
+            const fileName = decodeURIComponent(encodedName);
+
+            switchTab('downloads');
+
+            const parsedTorrent = client.get(magnetURI);
+            if (parsedTorrent) {
+                showToast(i18n[currentLang].task_exists_err, "warning");
+                return;
+            }
+
+            const downloadStartMsg = i18n[currentLang].connecting_p2p_download.replace('{name}', fileName);
+            showToast(downloadStartMsg, "info");
+
+            try {
+                client.add(magnetURI, { announce: announceList }, function (torrent) {
+                    // P2P 選擇性下載
+                    torrent.files.forEach(file => {
+                        if (file.path === filePath) {
+                            file.select();
+                        } else {
+                            file.deselect();
+                        }
+                    });
+
+                    activeDownloads[torrent.infoHash] = {
+                        torrent: torrent,
+                        targetFilePath: filePath,
+                        targetFileName: fileName
+                    };
+
+                    addDownloadToUI(torrent, fileName, filePath);
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function addDownloadToUI(torrent, targetFileName, targetFilePath) {
+            const placeholder = document.getElementById('downloads-placeholder');
+            if (placeholder) placeholder.remove();
+
+            document.getElementById('active-badge').classList.remove('hidden');
+
+            const id = torrent.infoHash;
+            const container = document.getElementById('transfer-list');
+            const div = document.createElement('div');
+            div.className = "bg-slate-50 border border-slate-200 rounded p-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 text-xs";
+            div.id = `download-${id}`;
+
+            div.innerHTML = `
+                <div class="truncate max-w-sm w-full md:w-1/3">
+                    <span class="font-bold text-slate-800 block truncate" title="${targetFileName}">${targetFileName}</span>
+                    <div class="flex items-center space-x-2 mt-1">
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100" id="dl-connecting-${id}" data-i18n="connecting">${i18n[currentLang].connecting}</span>
+                        <span class="text-[10px] text-slate-500 font-mono" id="dl-total-size-${id}">${i18n[currentLang].calculating}</span>
+                    </div>
+                </div>
+
+                <!-- 下載進度 -->
+                <div class="w-full md:w-1/3 px-2 flex-1">
+                    <div class="flex justify-between text-[10px] text-slate-500 mb-1">
+                        <span id="dl-speed-${id}">${i18n[currentLang].searching_nodes}</span>
+                        <span id="dl-percent-${id}">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-200 h-2 rounded overflow-hidden">
+                        <div id="dl-bar-${id}" class="h-full bg-gradient-to-r from-[#a25285] to-[#d991cd] transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- 控制按鈕 -->
+                <div class="flex items-center justify-between md:justify-end w-full md:w-auto space-x-3 text-right flex-shrink-0">
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-mono" id="dl-peers-${id}">Peer: 0</p>
+                        <p class="text-[10px] text-slate-400 font-mono" id="dl-eta-${id}">${i18n[currentLang].eta_calculating}</p>
+                    </div>
+                    <div class="flex space-x-1.5">
+                        <button id="dl-save-btn-${id}" class="hidden px-2 py-1 bg-green-600 hover:bg-green-500 rounded text-white text-[11px] font-bold shadow transition-all" data-i18n="save_file_btn">
+                            ${i18n[currentLang].save_file_btn}
+                        </button>
+                        <button onclick="cancelDownload('${id}')" class="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded border border-transparent hover:border-red-200" title="Cancel Download">
+                            <i data-lucide="x-circle" class="h-4.5 w-4.5"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(div);
+            lucide.createIcons();
+
+            const intervalId = setInterval(() => {
+                const dlSpeedText = document.getElementById(`dl-speed-${id}`);
+                const dlPercentText = document.getElementById(`dl-percent-${id}`);
+                const dlBar = document.getElementById(`dl-bar-${id}`);
+                const dlPeersText = document.getElementById(`dl-peers-${id}`);
+                const dlEtaText = document.getElementById(`dl-eta-${id}`);
+                const dlTotalSizeText = document.getElementById(`dl-total-size-${id}`);
+                const dlConnectingText = document.getElementById(`dl-connecting-${id}`);
+
+                if (!dlSpeedText) {
+                    clearInterval(intervalId);
+                    return;
+                }
+
+                if (dlConnectingText) {
+                    dlConnectingText.textContent = i18n[currentLang].connecting;
+                }
+
+                const targetFile = torrent.files.find(f => f.path === targetFilePath);
+                if (targetFile) {
+                    dlTotalSizeText.textContent = formatBytes(targetFile.length);
+                    const progressVal = Math.round(targetFile.progress * 100);
+                    dlBar.style.width = `${progressVal}%`;
+                    dlPercentText.textContent = `${progressVal}%`;
+                    
+                    dlSpeedText.textContent = i18n[currentLang].dl_speed_lbl.replace('{speed}', formatBytes(torrent.downloadSpeed));
+                    dlPeersText.textContent = i18n[currentLang].peers_lbl.replace('{count}', torrent.numPeers);
+                    
+                    if (torrent.timeRemaining && progressVal < 100) {
+                        dlEtaText.textContent = i18n[currentLang].eta_label.replace('{time}', formatMilliseconds(torrent.timeRemaining));
+                    } else if (progressVal >= 100) {
+                        dlEtaText.textContent = i18n[currentLang].transfer_done;
+                    }
+                }
+            }, 1000);
+
+            // 傳輸完成
+            torrent.on('done', () => {
+                const finishMsg = i18n[currentLang].download_success.replace('{name}', targetFileName);
+                showToast(finishMsg, "success");
+                const saveBtn = document.getElementById(`dl-save-btn-${id}`);
+                const speedText = document.getElementById(`dl-speed-${id}`);
+                if (speedText) speedText.textContent = i18n[currentLang].download_ready_save;
+
+                if (saveBtn) {
+                    saveBtn.textContent = i18n[currentLang].save_file_btn;
+                    saveBtn.classList.remove('hidden');
+                    saveBtn.onclick = () => {
+                        const file = torrent.files.find(f => f.path === targetFilePath);
+                        if (file) {
+                            file.getBlobURL((err, url) => {
+                                if (err) return console.error(err);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = file.name;
+                                a.click();
+                            });
+                        }
+                    };
+                    saveBtn.click();
+                }
+            });
+        }
+
+        // 取消下載
+        function cancelDownload(id) {
+            client.remove(id, (err) => {
+                if (err) console.error(err);
+                const el = document.getElementById(`download-${id}`);
+                if (el) el.remove();
+                delete activeDownloads[id];
+
+                showToast(i18n[currentLang].download_cancel_info, "info");
+
+                if (Object.keys(activeDownloads).length === 0) {
+                    document.getElementById('active-badge').classList.add('hidden');
+                    const container = document.getElementById('transfer-list');
+                    container.innerHTML = `
+                        <div id="downloads-placeholder" class="text-center py-24 border border-dashed border-slate-300 rounded-lg text-slate-400">
+                            <i data-lucide="arrow-down-to-line" class="h-10 w-10 mx-auto mb-3 opacity-30"></i>
+                            <p class="text-xs" data-i18n="download_placeholder_text">${i18n[currentLang].download_placeholder_text}</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                }
+            });
+        }
+
+        // 更新底列與監控台的速度數值
+        function updateGlobalSpeeds() {
+            const dl = client.downloadSpeed;
+            const ul = client.uploadSpeed;
+            const formattedDl = `${formatBytes(dl)}/S`;
+            const formattedUl = `${formatBytes(ul)}/S`;
+            
+            document.getElementById('status-dl-speed').textContent = `↓ ${formattedDl}.`;
+            
+            const upText = i18n[currentLang].ul_speed_lbl.replace('{speed}', formatBytes(ul));
+            const dlText = i18n[currentLang].dl_speed_lbl.replace('{speed}', formatBytes(dl));
+            document.getElementById('global-speed-badge').textContent = `${upText} | ${dlText}`;
+        }
+
+        // UI 分頁切換
+        function switchTab(tabId) {
+            document.getElementById('tab-search').classList.add('hidden');
+            document.getElementById('tab-downloads').classList.add('hidden');
+            document.getElementById('tab-share').classList.add('hidden');
+
+            document.getElementById('tab-search-btn').className = "w-full py-2.5 flex flex-col items-center justify-center rounded-lg bg-white/40 text-[#5c2446] hover:bg-white/60 hover:text-white font-bold text-xs border border-[#b373a6] transition-all transform active:scale-95";
+            document.getElementById('tab-downloads-btn').className = "w-full py-2.5 flex flex-col items-center justify-center rounded-lg bg-white/40 text-[#5c2446] hover:bg-white/60 hover:text-white font-bold text-xs border border-[#b373a6] transition-all relative transform active:scale-95";
+            document.getElementById('tab-share-btn').className = "w-full py-2.5 flex flex-col items-center justify-center rounded-lg bg-white/40 text-[#5c2446] hover:bg-white/60 hover:text-white font-bold text-xs border border-[#b373a6] transition-all transform active:scale-95";
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            
+            const targetBtn = document.getElementById(`tab-${tabId}-btn`);
+            targetBtn.className = "w-full py-2.5 flex flex-col items-center justify-center rounded-lg bg-gradient-to-b from-[#a25285] to-[#7f3b64] text-white font-bold text-xs shadow-md border-b-2 border-[#5c2446] transition-all transform active:scale-95 relative";
+        }
+
+        // 訊息 Toast
+        function showToast(message, type = "info") {
+            const toastBox = document.getElementById('toast-box');
+            const toast = document.createElement('div');
+            
+            let bgClass = "bg-slate-900 border-slate-700 text-slate-100";
+            let icon = "info";
+            if (type === "success") {
+                bgClass = "bg-green-900 border-green-700 text-green-100 shadow-lg";
+                icon = "check-circle";
+            } else if (type === "error") {
+                bgClass = "bg-red-900 border-red-700 text-red-100 shadow-lg";
+                icon = "alert-triangle";
+            } else if (type === "warning") {
+                bgClass = "bg-amber-900 border-amber-700 text-amber-100 shadow-lg";
+                icon = "alert-circle";
+            }
+
+            toast.className = `${bgClass} border p-3 rounded shadow-2xl flex items-start gap-2 text-xs transition-all duration-300 transform scale-95 opacity-0 translate-y-2`;
+            toast.innerHTML = `
+                <i data-lucide="${icon}" class="h-4 w-4 flex-shrink-0 mt-0.5"></i>
+                <div class="flex-1">${message}</div>
+            `;
+            
+            toastBox.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-0', 'scale-95', 'translate-y-2');
+                toast.classList.add('opacity-100', 'scale-100', 'translate-y-0');
+            }, 50);
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'scale-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'scale-95', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // 複製至剪貼簿
+        function copyToClipboard(text) {
+            const tempInput = document.createElement('input');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showToast("📋 Magnet URI Copied!", "success");
+            } catch (err) {
+                console.error(err);
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        function hashCode(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return Math.abs(hash);
+        }
+
+        // 格式化檔案大小
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0.00 KB';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 格式化剩餘時間 (毫秒)
+        function formatMilliseconds(ms) {
+            let totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            totalSeconds %= 3600;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            
+            if (currentLang === 'zh') {
+                let result = '';
+                if (hours > 0) result += `${hours}時 `;
+                if (minutes > 0 || hours > 0) result += `${minutes}分 `;
+                result += `${seconds}秒`;
+                return result;
+            } else {
+                let result = '';
+                if (hours > 0) result += `${hours}h `;
+                if (minutes > 0 || hours > 0) result += `${minutes}m `;
+                result += `${seconds}s`;
+                return result;
+            }
+        }
+    </script>
+</body>
+</html>
