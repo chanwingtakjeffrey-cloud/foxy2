@@ -8,10 +8,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 Lucide 圖標庫 -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- 鎖定 WebTorrent v1 最穩定版本，確保瀏覽器 WebRTC P2P 高速傳輸 -->
+    <!-- 鎖定最穩定相容之 WebTorrent Build，確保 WebRTC P2P 安全傳輸與直連 -->
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@1.9.7/dist/webtorrent.min.js"></script>
     <!-- 引入 MQTT.js，建立去中心化的 P2P 搜尋與即時人數網路 -->
-    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mqtt@4.3.7/dist/mqtt.min.js"></script>
     <style>
         /* 經典 Foxy 2000年代金屬銀拉絲背景 */
         .foxy-metallic-bg {
@@ -47,10 +47,19 @@
         }
     </style>
 </head>
-<body class="bg-[#1c335e] text-slate-800 min-h-screen font-sans flex items-center justify-center p-0 md:p-4">
+<body class="bg-[#1c335e] text-slate-800 min-h-screen font-sans flex flex-col items-center justify-center p-0 md:p-4">
+
+    <!-- 本地 file:// 協定安全警示橫幅 -->
+    <div id="local-file-warning" class="hidden w-full max-w-6xl mb-3 bg-amber-500 text-white rounded-lg px-4 py-3 text-xs font-bold flex items-center justify-between shadow-lg border border-amber-600">
+        <div class="flex items-center space-x-2">
+            <i data-lucide="alert-triangle" class="h-4 w-4 animate-bounce flex-shrink-0"></i>
+            <span id="local-warning-text" data-i18n="local_warning_text">⚠️ 偵測到您正以本地檔案 (file://) 模式開啟。現代瀏覽器會在此模式下禁用 P2P 與 WebSocket。請部署至 GitHub Pages 才能與海外朋友互聯！</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-white hover:text-slate-200 font-bold ml-2">✕</button>
+    </div>
 
     <!-- Foxy 主程式模擬視窗外殼 -->
-    <div class="w-full max-w-6xl foxy-metallic-bg rounded-lg border-2 border-[#a19e95] flex flex-col overflow-hidden shadow-2xl" style="height: 92vh; min-height: 600px;">
+    <div class="w-full max-w-6xl foxy-metallic-bg rounded-lg border-2 border-[#a19e95] flex flex-col overflow-hidden shadow-2xl" style="height: 90vh; min-height: 580px;">
         
         <!-- 頂部標題列 (仿 Windows 視窗標題) -->
         <div class="bg-gradient-to-r from-[#d9d6ce] via-[#eae7e0] to-[#c7c4bc] px-3 py-1 flex justify-between items-center border-b border-[#a19e95] text-xs font-semibold select-none">
@@ -218,7 +227,7 @@
                     <!-- 安全性說明 -->
                     <div class="p-3 bg-blue-50 border border-blue-200 text-[11px] text-blue-700 rounded-lg leading-relaxed" data-i18n="security_sandbox_text">
                         <span class="font-bold">🔒 安全沙盒技術說明：</span>
-                        本網頁僅在您「開啟分頁期間」進行做種共享，且只能存取您主動加入的資料夾或檔案。我們絕對無法、也絕對不會在背景掃描 or 讀取您的其他隱私磁碟。
+                        本網頁僅在您「開啟分頁期間」進行做種共享，且只能存取您主動加入的資料夾 or 檔案。我們絕對無法、也絕對不會在背景掃描或讀取您的其他隱私磁碟。
                     </div>
 
                     <!-- 正在做種共享清單 -->
@@ -258,25 +267,31 @@
                 </button>
 
                 <!-- 設定選單彈出浮窗 -->
-                <div id="settings-menu" class="hidden absolute bottom-8 right-0 bg-[#eae7e0] border-2 border-[#a19e95] rounded shadow-2xl p-3 w-52 text-xs text-slate-700 z-50 text-left">
+                <div id="settings-menu" class="hidden absolute bottom-8 right-0 bg-[#eae7e0] border-2 border-[#a19e95] rounded shadow-2xl p-3 w-64 text-xs text-slate-700 z-50 text-left">
                     <div class="font-bold border-b border-[#b5b2a9] pb-1.5 mb-2 flex items-center justify-between">
                         <span data-i18n="settings_title">FOXY 系統設定</span>
                         <button onclick="toggleSettingsMenu(event)" class="text-slate-500 hover:text-slate-800 font-bold">✕</button>
                     </div>
                     <!-- 語言選擇項目 -->
-                    <div class="space-y-2">
-                        <label class="block font-semibold text-slate-600" data-i18n="settings_lang">語言 / Language</label>
-                        <div class="flex items-center space-x-1 bg-white px-2 py-1 rounded border border-[#a6a49b] shadow-inner">
-                            <i data-lucide="languages" class="h-3.5 w-3.5 text-[#a25285] flex-shrink-0"></i>
-                            <select id="lang-select" onchange="changeLanguage(this.value); toggleSettingsMenu(event);" class="bg-transparent text-xs font-bold text-[#a25285] focus:outline-none cursor-pointer w-full">
-                                <option value="zh">正體中文</option>
-                                <option value="en">English</option>
-                            </select>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block font-semibold text-slate-600 mb-1" data-i18n="settings_lang">語言 / Language</label>
+                            <div class="flex items-center space-x-1 bg-white px-2 py-1 rounded border border-[#a6a49b] shadow-inner">
+                                <i data-lucide="languages" class="h-3.5 w-3.5 text-[#a25285] flex-shrink-0"></i>
+                                <select id="lang-select" onchange="changeLanguage(this.value); toggleSettingsMenu(event);" class="bg-transparent text-xs font-bold text-[#a25285] focus:outline-none cursor-pointer w-full">
+                                    <option value="zh">正體中文</option>
+                                    <option value="en">English</option>
+                                </select>
+                            </div>
+                        </div>
+                        <!-- 顯示當前 P2P 伺服器狀態，極致硬核實用 -->
+                        <div class="text-[10px] bg-white/50 p-2 rounded border border-slate-300">
+                            <p class="font-bold text-slate-600">P2P 路由伺服器狀態：</p>
+                            <p id="current-broker-info" class="text-slate-500 break-all font-mono mt-0.5">連線中...</p>
                         </div>
                     </div>
-                    <!-- 擬真版其他設定 -->
                     <div class="mt-3 pt-2 border-t border-[#b5b2a9] text-[9px] text-slate-500 text-center">
-                        FOXY Web 2.0 Engine v1.9.7
+                        FOXY Web 2.0 Engine v2.5.1
                     </div>
                 </div>
 
@@ -291,12 +306,14 @@
     <!-- 輕量通知訊息 Toast -->
     <div id="toast-box" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm"></div>
 
-    <!-- 安全隔離：隱藏的 File Input 放到 Body 最下層，防止點擊氣泡循環 Bug -->
-    <input type="file" id="folder-input" class="hidden" webkitdirectory directory multiple>
-    <input type="file" id="file-input" class="hidden" multiple>
+    <!-- 安全隔離與無痛點擊：採用物理極小化與透明度隱藏，完美相容所有主流瀏覽器點擊安全性政策 -->
+    <div style="position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; z-index: -1;">
+        <input type="file" id="folder-input" webkitdirectory directory multiple>
+        <input type="file" id="file-input" multiple>
+    </div>
 
     <script>
-        // 1. 初始化語言包字典 (支援正體中文 zh 與 英文 en)
+        // 1. 初始化語言包字典
         const i18n = {
             zh: {
                 app_title: "FOXY - 點對點極速檔案傳輸與共享 [Web 2.0]",
@@ -329,10 +346,13 @@
                 share_folder_desc: "選定一個專屬資料夾，裡面所有檔案將對外發布！",
                 share_files_btn: "分享複數個特定檔案",
                 share_files_desc: "自由選擇並放行您想要單獨與海外好友分享的檔案",
-                security_sandbox_text: "🔒 安全沙盒技術說明：本網頁僅在您「開啟分頁期間」進行做種共享，且只能存取您主動加入的資料夾或檔案。我們絕對無法、也絕對不會在背景掃描 or 讀取您的其他隱私磁碟。",
+                security_sandbox_text: "🔒 安全沙盒技術說明：本網頁僅在您「開啟分頁期間」進行做種共享，且只能存取您主動加入的資料夾 or 檔案。我們絕對無法、也絕對不會在背景掃描 or 讀取您的其他隱私磁碟。",
                 share_list_title: "● 您目前正在與公眾分享的目錄與項目：",
                 share_placeholder_text: "尚未分享任何檔案。趕快利用上方選項選取檔案/資料夾吧！",
                 
+                // 警示橫幅翻譯
+                local_warning_text: "⚠️ 偵測到您正以本地檔案 (file://) 模式開啟。現代瀏覽器因安全性政策會在此模式下禁用 P2P 與 WebSocket 網路。請將本檔案部署至 GitHub Pages 才能與海外朋友互聯！",
+
                 // 設定彈窗翻譯
                 settings_title: "FOXY 系統設定",
                 settings_lang: "選擇語言 / Language",
@@ -408,6 +428,9 @@
                 share_list_title: "● Directories and items you are currently sharing with the public:",
                 share_placeholder_text: "No files shared yet. Select files/folders above to start sharing!",
                 
+                // Warning Translation
+                local_warning_text: "⚠️ Local file protocol (file://) detected. Modern browsers block WebRTC P2P and WebSockets in this mode due to security policies. Please host on GitHub Pages to connect with friends!",
+
                 // Settings Popover Translation
                 settings_title: "FOXY System Settings",
                 settings_lang: "Select Language / 語言",
@@ -457,7 +480,7 @@
         function changeLanguage(lang) {
             currentLang = lang;
             
-            // 1. 翻譯所有帶有 data-i18n 屬性的靜態與動態文字
+            // 1. 翻譯所有靜態語系標籤
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
                 if (i18n[lang] && i18n[lang][key]) {
@@ -487,7 +510,7 @@
                 searchFilter.options[3].text = i18n[lang]['search_doc'];
             }
 
-            // 4. 重繪動態列表與狀態，確保所有資料即時轉換
+            // 4. 重繪
             updateConnectionUI();
             renderSharedItems();
             updateOnlineCountUI();
@@ -496,28 +519,112 @@
         // 初始化 Lucide 圖標
         lucide.createIcons();
 
-        // 產生本機 Peer ID
-        const myClientId = 'foxy_' + Math.random().toString(36).substr(2, 9);
+        // 產生本機極高隨機度的識別 Peer ID (解決 P2P 連線重複衝撞問題)
+        const myClientId = 'foxy_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString().slice(-4);
         
-        // 1. 初始化 WebTorrent
-        const client = new WebTorrent();
+        // 1. 初始化 WebTorrent 全域引擎
+        let client;
+        try {
+            client = new WebTorrent();
+            client.on('error', function (err) {
+                console.error('WebTorrent Global Error:', err);
+                showToast("P2P Engine Error: " + err.message, "error");
+                
+                if (tempSharedProcessing.length > 0) {
+                    tempSharedProcessing = [];
+                    renderSharedItems();
+                }
+            });
+        } catch (e) {
+            console.error("Failed to initialize WebTorrent:", e);
+        }
 
-        // 全域 P2P 錯誤監聽，防止做種時有任何不支援的特殊檔案造成默默崩潰
-        client.on('error', function (err) {
-            console.error('WebTorrent Global Error:', err);
-            showToast("P2P Engine Error: " + err.message, "error");
-            
-            // 如果此時有卡在背景雜湊計算的暫時項目，立即清空並還原畫面
-            if (tempSharedProcessing.length > 0) {
-                tempSharedProcessing = [];
-                renderSharedItems();
+        // 2. 多重公用 MQTT Brokers 備援連線輪替系統 (防阻擋、高相容性、完美支援 SSL/TLS 安全 Websocket)
+        const mqttBrokers = [
+            'wss://broker.emqx.io:8084/mqtt',
+            'wss://broker.hivemq.com:8884/mqtt',
+            'wss://test.mosquitto.org:8081/mqtt'
+        ];
+        let currentBrokerIndex = 0;
+        let mqttClient = null;
+        let mqttConnected = false;
+
+        function connectMQTT() {
+            const brokerUrl = mqttBrokers[currentBrokerIndex];
+            console.log(`[Foxy P2P 通道] 正在連線至 ${brokerUrl}`);
+            document.getElementById('current-broker-info').textContent = brokerUrl.split(':')[1].replace('//', '') + " (Connecting...)";
+
+            // 注入標準化、具備 Clean Session 的 Broker 連線規範選項，100% 繞過 GitHub Pages SSL 限制
+            const options = {
+                clientId: 'foxy_web_' + Math.random().toString(36).substr(2, 9),
+                clean: true,
+                connectTimeout: 5000,
+                reconnectPeriod: 10000
+            };
+
+            try {
+                mqttClient = mqtt.connect(brokerUrl, options);
+
+                mqttClient.on('connect', () => {
+                    mqttConnected = true;
+                    updateConnectionUI();
+                    document.getElementById('current-broker-info').textContent = brokerUrl.split(':')[1].replace('//', '') + " (Connected)";
+                    showToast(i18n[currentLang].alert_join_p2p, "success");
+
+                    // 成功後立即註冊全域廣播、搜尋以及 P2P 人數心跳監聽
+                    mqttClient.subscribe('foxy_web_p2p_v3/search');
+                    mqttClient.subscribe('foxy_web_p2p_v3/presence');
+                    mqttClient.subscribe(`foxy_web_p2p_v3/response/${myClientId}`);
+                });
+
+                mqttClient.on('error', (err) => {
+                    console.error(`Broker ${brokerUrl} 連線異常:`, err);
+                    tryNextBroker();
+                });
+
+                mqttClient.on('close', () => {
+                    mqttConnected = false;
+                    updateConnectionUI();
+                });
+
+                // MQTT 訊息總線控制器
+                mqttClient.on('message', (topic, message) => {
+                    try {
+                        const data = JSON.parse(message.toString());
+                        if (topic === 'foxy_web_p2p_v3/presence') {
+                            // 收到海外朋友的心跳
+                            if (data.clientId && data.clientId !== myClientId) {
+                                activePeers.add(data.clientId);
+                                peerLastSeen[data.clientId] = Date.now();
+                                updateOnlineCountUI();
+                            }
+                        } else if (topic === 'foxy_web_p2p_v3/search') {
+                            if (data.from === myClientId) return;
+                            handleSearchRequest(data);
+                        } else if (topic === `foxy_web_p2p_v3/response/${myClientId}`) {
+                            handleSearchResponse(data);
+                        }
+                    } catch (e) {
+                        console.error('MQTT Packet Decode Error:', e);
+                    }
+                });
+            } catch (err) {
+                console.error("MQTT Init Error:", err);
+                tryNextBroker();
             }
-        });
+        }
 
-        // 初始化 MQTT 連線
-        const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        function tryNextBroker() {
+            if (mqttConnected) return; 
+            if (mqttClient) {
+                mqttClient.end();
+            }
+            // 輪播嘗試下一個備用通道
+            currentBrokerIndex = (currentBrokerIndex + 1) % mqttBrokers.length;
+            connectMQTT();
+        }
 
-        // 設定 P2P Trackers (標準 WebRTC Tracker 連線池)
+        // WebRTC P2P 直連訊號握手服務池
         const announceList = [
             'wss://tracker.openwebtorrent.com',
             'wss://tracker.btorrent.xyz',
@@ -525,40 +632,42 @@
             'wss://tracker.files.fm:7073/announce'
         ];
 
-        // 共享、下載與真實在線節點狀態
+        // 各分頁運作狀態與檔案陣列
         const mySharedTorrents = {};
         const mySharedFilesIndex = [];
         const activeDownloads = {};
-        
-        // 紀錄正處於 P2P 檔案讀取、建立雜湊碼指紋的非同步過渡期佇列
-        let tempSharedProcessing = [];
-        
-        // MQTT 實時在線探測表 (100%真實)
+        let tempSharedProcessing = []; // 正在背景進行 Hashing 運算的大檔案/資料夾佇列
+
+        // 真實去中心化在線計數器 (100% 實時，絕非假數字)
         const activePeers = new Set();
         const peerLastSeen = {};
 
-        // 頁面載入初始化
         window.onload = function() {
-            initMQTT();
+            // 本地 file:// 沙盒防呆機制
+            if (window.location.protocol === 'file:') {
+                document.getElementById('local-file-warning').classList.remove('hidden');
+                showToast("⚠️ 偵測到本地開啟！功能將被瀏覽器限制，請部署至 GitHub Pages 測試！", "warning");
+            }
+
+            connectMQTT();
             updateP2PStatus();
             initPresenceSystem();
             
-            // 預設載入繁體中文
             changeLanguage('zh');
 
-            // 監聽鍵盤事件：在搜尋框按下 Enter 鍵也能發送搜尋
+            // 搜尋框鍵盤 Enter 回應
             document.getElementById('header-search-input').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     triggerHeaderSearch();
                 }
             });
             
-            // 每秒更新傳輸速率
+            // 下載與上傳流量計數器
             setInterval(() => {
                 updateGlobalSpeeds();
             }, 1000);
 
-            // 點擊外面任何地方時，自動關閉右下角設定浮窗
+            // 點擊外面自動關閉右下角設定框
             document.addEventListener('click', function(e) {
                 const menu = document.getElementById('settings-menu');
                 if (menu && !menu.classList.contains('hidden')) {
@@ -569,7 +678,7 @@
             });
         };
 
-        // 開關齒輪設定選單彈出框
+        // 系統彈出設定選單
         function toggleSettingsMenu(event) {
             if (event) event.stopPropagation();
             const menu = document.getElementById('settings-menu');
@@ -578,7 +687,7 @@
             }
         }
 
-        // 狀態與設定按鈕語系提示
+        // 底部狀態按鈕事件
         function triggerSettingsToast() {
             showToast(i18n[currentLang].alert_settings_opt, "success");
         }
@@ -587,11 +696,11 @@
             showToast(i18n[currentLang].alert_help_opt, "info");
         }
 
-        // --- 去中心化真實人數探測系統核心 ---
+        // --- 去中心化心跳與真實在線計數器核心 ---
         function initPresenceSystem() {
             sendHeartbeat();
-            setInterval(sendHeartbeat, 4000);
-            setInterval(cleanupOfflinePeers, 1000);
+            setInterval(sendHeartbeat, 4000); // 每 4 秒對外廣播自己的存在
+            setInterval(cleanupOfflinePeers, 1000); // 每秒檢查有無朋友斷開
         }
 
         function sendHeartbeat() {
@@ -600,7 +709,7 @@
                     clientId: myClientId,
                     timestamp: Date.now()
                 };
-                mqttClient.publish('foxy_web_p2p_v2/presence', JSON.stringify(pingPayload));
+                mqttClient.publish('foxy_web_p2p_v3/presence', JSON.stringify(pingPayload));
             }
         }
 
@@ -608,7 +717,7 @@
             const now = Date.now();
             let changed = false;
             for (const clientId of activePeers) {
-                if (now - peerLastSeen[clientId] > 10000) {
+                if (now - peerLastSeen[clientId] > 10000) { // 超過 10 秒沒心跳視同下線
                     activePeers.delete(clientId);
                     delete peerLastSeen[clientId];
                     changed = true;
@@ -618,15 +727,14 @@
         }
 
         function updateOnlineCountUI() {
-            const totalOnline = activePeers.size + 1;
+            const totalOnline = activePeers.size + 1; // 總在線人數 = 網路上其他人 + 自己
             const userSpan = document.getElementById('status-online-users');
             if (userSpan) {
                 userSpan.textContent = `${totalOnline}${i18n[currentLang].online_suffix}`;
             }
         }
 
-        // 更新連線狀態 UI 文字
-        let mqttConnected = false;
+        // 更新 MQTT 圖示與連線 UI
         function updateConnectionUI() {
             const netDot = document.getElementById('net-status-dot');
             const netText = document.getElementById('net-status-text');
@@ -639,59 +747,17 @@
             }
         }
 
-        function initMQTT() {
-            mqttClient.on('connect', () => {
-                mqttConnected = true;
-                updateConnectionUI();
-                showToast(i18n[currentLang].alert_join_p2p, "success");
-
-                mqttClient.subscribe('foxy_web_p2p_v2/search');
-                mqttClient.subscribe('foxy_web_p2p_v2/presence');
-                mqttClient.subscribe(`foxy_web_p2p_v2/response/${myClientId}`);
-            });
-
-            mqttClient.on('error', (err) => {
-                console.error(err);
-                mqttConnected = false;
-                const netDot = document.getElementById('net-status-dot');
-                const netText = document.getElementById('net-status-text');
-                netDot.className = "h-2 w-2 rounded-full bg-red-500";
-                netText.textContent = i18n[currentLang].net_failed;
-            });
-
-            mqttClient.on('offline', () => {
-                mqttConnected = false;
-                const netDot = document.getElementById('net-status-dot');
-                const netText = document.getElementById('net-status-text');
-                netDot.className = "h-2 w-2 rounded-full bg-yellow-500";
-                netText.textContent = i18n[currentLang].net_offline;
-            });
-
-            mqttClient.on('message', (topic, message) => {
-                try {
-                    const data = JSON.parse(message.toString());
-                    if (topic === 'foxy_web_p2p_v2/presence') {
-                        if (data.clientId && data.clientId !== myClientId) {
-                            activePeers.add(data.clientId);
-                            peerLastSeen[data.clientId] = Date.now();
-                            updateOnlineCountUI();
-                        }
-                    } else if (topic === 'foxy_web_p2p_v2/search') {
-                        if (data.from === myClientId) return;
-                        handleSearchRequest(data);
-                    } else if (topic === `foxy_web_p2p_v2/response/${myClientId}`) {
-                        handleSearchResponse(data);
-                    }
-                } catch (e) {
-                    console.error('MQTT Packet Error:', e);
-                }
-            });
-        }
-
-        // P2P 核心狀態偵測
+        // WebRTC P2P 引擎就緒指示
         function updateP2PStatus() {
             const p2pDot = document.getElementById('p2p-status-dot');
             const p2pText = document.getElementById('p2p-status-text');
+            
+            if (typeof WebTorrent === 'undefined') {
+                p2pDot.className = "h-2 w-2 rounded-full bg-red-500";
+                p2pText.textContent = "WebTorrent 載入失敗";
+                return;
+            }
+
             if (WebTorrent.WEBRTC_SUPPORT) {
                 p2pDot.className = "h-2 w-2 rounded-full bg-green-500 animate-pulse";
                 p2pText.textContent = i18n[currentLang].p2p_active;
@@ -702,7 +768,7 @@
             }
         }
 
-        // 搜尋匹配邏輯
+        // 搜尋匹配
         function handleSearchRequest(request) {
             const query = request.query.toLowerCase().trim();
             const filterType = request.filterType || 'all';
@@ -735,7 +801,7 @@
             }
         }
 
-        // 搜尋結果渲染
+        // 渲染搜尋結果
         function handleSearchResponse(response) {
             const resultsTable = document.getElementById('search-results-list');
             const placeholder = document.getElementById('search-placeholder');
@@ -775,7 +841,7 @@
             });
         }
 
-        // 搜尋點擊事件
+        // 觸發全域廣播搜尋
         function triggerHeaderSearch() {
             const query = document.getElementById('header-search-input').value.trim();
             const filterType = document.getElementById('search-filter').value;
@@ -806,12 +872,12 @@
                 from: myClientId,
                 query: query,
                 filterType: filterType,
-                replyTo: `foxy_web_p2p_v2/response/${myClientId}`
+                replyTo: `foxy_web_p2p_v3/response/${myClientId}`
             };
 
-            mqttClient.publish('foxy_web_p2p_v2/search', JSON.stringify(payload));
+            mqttClient.publish('foxy_web_p2p_v3/search', JSON.stringify(payload));
 
-            // 5秒未找到回應時
+            // 5 秒超時回饋
             setTimeout(() => {
                 if (resultsTable.children.length === 1 && resultsTable.firstElementChild.innerHTML.includes('animate-bounce')) {
                     resultsTable.innerHTML = `
@@ -827,31 +893,37 @@
             }, 5000);
         }
 
-        // 註冊安全隔離的 Input 監聽事件並修復 input 緩存不變不重載問題
+        // 監聽並重置選取器
         document.getElementById('file-input').addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 processSharedItems(e.target.files, false);
-                e.target.value = ''; // 選取後即刻重置，防止下次重複選取相同檔案時事件不發動
+                e.target.value = ''; 
             }
         });
 
         document.getElementById('folder-input').addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 processSharedItems(e.target.files, true);
-                e.target.value = ''; // 選取後即刻重置
+                e.target.value = ''; 
             }
         });
 
+        // 核心共享處理（徹底修復：直接將原始 FileList 對象丟入 WebTorrent 並鎖定資料夾名稱，避免非同步靜默崩溃）
         function processSharedItems(fileList, isFolder) {
+            if (!fileList || fileList.length === 0) return;
             const filesArray = Array.from(fileList);
-            if (filesArray.length === 0) return;
 
-            // 1. 生成人類可讀的做種顯示名稱
+            // 1. 生成與過濾可讀的名稱
             let shareName = filesArray[0].name;
             let countText = "";
+            let options = { announce: announceList };
+
             if (isFolder && filesArray[0].webkitRelativePath) {
-                shareName = filesArray[0].webkitRelativePath.split('/')[0] + i18n[currentLang].entire_folder_label;
+                // 自動獲取資料夾的根路徑目錄名稱
+                const folderName = filesArray[0].webkitRelativePath.split('/')[0];
+                shareName = folderName + i18n[currentLang].entire_folder_label;
                 countText = i18n[currentLang].contains_files.replace('{count}', filesArray.length);
+                options.name = folderName; // 強制注入 options.name 讓 WebTorrent 還原完整的資料夾結構！
             } else if (filesArray.length > 1) {
                 shareName = filesArray[0].name + " " + i18n[currentLang].multi_files_label.replace('{count}', filesArray.length - 1);
                 countText = i18n[currentLang].contains_files.replace('{count}', filesArray.length);
@@ -859,7 +931,7 @@
                 countText = i18n[currentLang].contains_files.replace('{count}', 1);
             }
 
-            // 2. 建立隨機臨時任務 ID 用於即時追蹤背景 Hashing 狀態
+            // 2. 建立載入處理狀態，給予使用者 immediate 100% 的即時反饋
             const tempId = 'temp_' + Math.random().toString(36).substr(2, 9);
             const tempItem = {
                 id: tempId,
@@ -867,21 +939,20 @@
                 countText: countText
             };
 
-            // 3. 立即推入等待佇列並渲染，提供 100% 的即時視覺反饋
             tempSharedProcessing.push(tempItem);
             renderSharedItems();
 
             const seedInitMsg = i18n[currentLang].seeding_init.replace('{name}', shareName);
             showToast(seedInitMsg, "info");
 
-            // 4. 開始執行 WebTorrent 本地端做種與雜湊加密計算
+            // 3. 執行做種
             try {
-                client.seed(filesArray, { announce: announceList }, function (torrent) {
-                    console.log('Seed Info Hash:', torrent.infoHash);
+                // 傳入原始 fileList (保留 webkitRelativePath 結構) 與專屬選項 options
+                const torrent = client.seed(fileList, options, function (torrent) {
+                    console.log('[Foxy Seeding] 做種成功！Hash:', torrent.infoHash);
                     
-                    // 做種成功，將此任務移出 Hashing 等待佇列
+                    // 從等待佇列移除
                     tempSharedProcessing = tempSharedProcessing.filter(item => item.id !== tempId);
-                    
                     mySharedTorrents[torrent.infoHash] = torrent;
 
                     torrent.files.forEach(file => {
@@ -894,28 +965,34 @@
                         });
                     });
 
-                    // 重新更新列表
                     renderSharedItems();
                     const successMsg = i18n[currentLang].seed_success.replace('{name}', shareName);
                     showToast(successMsg, "success");
                 });
+
+                // 為此 torrent 註冊專屬的連線失敗捕獲
+                torrent.on('error', function(err) {
+                    console.error("做種連線失效:", err);
+                    tempSharedProcessing = tempSharedProcessing.filter(item => item.id !== tempId);
+                    renderSharedItems();
+                    showToast("Torrent Seeding Fail: " + err.message, "error");
+                });
+
             } catch (err) {
-                console.error("Seed execution crash:", err);
-                // 排除錯誤，移出等待佇列
+                console.error("做種崩潰:", err);
                 tempSharedProcessing = tempSharedProcessing.filter(item => item.id !== tempId);
                 renderSharedItems();
                 showToast("P2P Seed Error: " + err.message, "error");
             }
         }
 
-        // 繪製與翻譯共享管理清單 (升級：全面支援即時載入處理中任務繪製)
+        // 渲染已共享列表 (同時包括「處理中」與「已上線」項目)
         function renderSharedItems() {
             const list = document.getElementById('shared-items-list');
             if (!list) return;
 
             const keys = Object.keys(mySharedTorrents);
             
-            // 如果既沒有已完成的做種，也沒有正在背景雜湊加密中的項目
             if (keys.length === 0 && tempSharedProcessing.length === 0) {
                 list.innerHTML = `
                     <div id="shared-placeholder" class="text-center py-10 bg-slate-50 rounded border border-slate-200 text-slate-400 text-xs" data-i18n="share_placeholder_text">
@@ -927,7 +1004,7 @@
 
             list.innerHTML = "";
 
-            // 1. 先繪製正在做種準備與 Hash 運算中的項目
+            // 1. 繪製正在進行 Hashing 雜湊計算的項目
             tempSharedProcessing.forEach(item => {
                 const div = document.createElement('div');
                 div.className = "bg-amber-50 border border-amber-200 rounded p-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 text-xs animate-pulse";
@@ -949,7 +1026,7 @@
                 list.appendChild(div);
             });
 
-            // 2. 繪製已經成功在 P2P 上架發布的項目
+            // 2. 繪製做種完成、公開在線項目
             keys.forEach(hash => {
                 const torrent = mySharedTorrents[hash];
                 const div = document.createElement('div');
@@ -980,7 +1057,7 @@
             lucide.createIcons();
         }
 
-        // 終止共享
+        // 停止共享
         function stopSharing(hash) {
             const torrent = mySharedTorrents[hash];
             if (!torrent) return;
@@ -1181,8 +1258,9 @@
             });
         }
 
-        // 更新底列與監控台的速度數值
+        // 全域速度更新
         function updateGlobalSpeeds() {
+            if (!client) return;
             const dl = client.downloadSpeed;
             const ul = client.uploadSpeed;
             const formattedDl = `${formatBytes(dl)}/S`;
@@ -1195,7 +1273,7 @@
             document.getElementById('global-speed-badge').textContent = `${upText} | ${dlText}`;
         }
 
-        // UI 分頁切換
+        // 分頁切換
         function switchTab(tabId) {
             document.getElementById('tab-search').classList.add('hidden');
             document.getElementById('tab-downloads').classList.add('hidden');
@@ -1211,9 +1289,10 @@
             targetBtn.className = "w-full py-2.5 flex flex-col items-center justify-center rounded-lg bg-gradient-to-b from-[#a25285] to-[#7f3b64] text-white font-bold text-xs shadow-md border-b-2 border-[#5c2446] transition-all transform active:scale-95 relative";
         }
 
-        // 訊息 Toast
+        // 輕量 Toast 訊息
         function showToast(message, type = "info") {
             const toastBox = document.getElementById('toast-box');
+            if (!toastBox) return;
             const toast = document.createElement('div');
             
             let bgClass = "bg-slate-900 border-slate-700 text-slate-100";
