@@ -99,19 +99,24 @@
             </div>
 
             <!-- 頂部經典全域搜尋列 -->
-            <div class="flex items-center w-full max-w-2xl bg-white rounded border border-[#a6a49b] px-1.5 py-1 shadow-inner">
+            <div class="flex items-center w-full max-w-2xl bg-white rounded border border-[#a6a49b] px-1.5 py-1 shadow-inner gap-1">
                 <input type="text" id="header-search-input" class="w-full text-sm text-slate-800 focus:outline-none px-2 placeholder-slate-400" data-i18n-placeholder="search_placeholder" placeholder="請輸入關鍵字搜尋公開資源...">
-                <div class="h-5 w-[1px] bg-slate-300 mx-2"></div>
+                <div class="h-5 w-[1px] bg-slate-300 mx-1"></div>
                 <!-- 經典類別下拉選單 -->
-                <select id="search-filter" class="bg-transparent text-xs text-slate-600 focus:outline-none cursor-pointer pr-2">
+                <select id="search-filter" class="bg-transparent text-xs text-slate-600 focus:outline-none cursor-pointer pr-1">
                     <option value="all">🔍 全部</option>
                     <option value="music">🎵 音樂</option>
                     <option value="video">🎬 影片</option>
                     <option value="doc">📄 文件</option>
                 </select>
                 <!-- 經典搜尋按鈕 -->
-                <button onclick="triggerHeaderSearch()" class="ml-2 px-5 py-1 bg-[#eae7e0] hover:bg-slate-200 text-slate-700 text-xs font-bold border border-[#a19e95] rounded shadow-sm transition-all flex items-center gap-1 flex-shrink-0">
+                <button onclick="triggerHeaderSearch()" class="px-4 py-1 bg-[#eae7e0] hover:bg-slate-200 text-slate-700 text-xs font-bold border border-[#a19e95] rounded shadow-sm transition-all flex items-center gap-1 flex-shrink-0">
                     <span data-i18n="search_btn">搜尋</span>
+                </button>
+                <!-- 新增：經典「瀏覽全部」廣播按鈕，實現不用關鍵字就能看見別人在共享什麼 -->
+                <button onclick="triggerPublicBrowse()" class="px-3 py-1 bg-gradient-to-b from-blue-500 to-blue-600 hover:brightness-105 text-white text-xs font-bold rounded shadow-sm transition-all flex items-center gap-1 flex-shrink-0" title="瀏覽全球在線共享清單">
+                    <i data-lucide="globe" class="h-3 w-3"></i>
+                    <span data-i18n="browse_all_btn">瀏覽全部</span>
                 </button>
             </div>
 
@@ -147,7 +152,7 @@
                 </button>
 
                 <!-- 共享分頁按鈕 -->
-                <button onclick="switchTab('share')" id="tab-share-btn" class="w-full py-2.5 flex flex-col items-center justify-center rounded-lg bg-white/40 text-[#5c2446] hover:bg-white/60 hover:text-white font-bold text-xs border border-[#b373a6] transition-all transform active:scale-95">
+                <button onclick="switchTab('share')" id="tab-share-btn" class="w-full py-2.5 flex flex-col items-center justify-center rounded-lg bg-white/40 text-[#5c2446] hover:bg-white/60 hover:text-white font-bold text-xs border border-[#b373a6] transition-all transform active:scale-95 relative">
                     <i data-lucide="folder-heart" class="h-5 w-5 mb-1 text-[#a25285]"></i>
                     <span data-i18n="tab_share">共享</span>
                 </button>
@@ -240,12 +245,28 @@
                     </div>
 
                     <!-- 正在做種共享清單 -->
-                    <div class="flex-1 flex flex-col min-h-0">
-                        <span class="text-xs font-bold text-slate-500 mb-2" data-i18n="share_list_title">● 您目前正在與公眾分享的目錄與項目：</span>
-                        <div id="shared-items-list" class="flex-1 overflow-auto space-y-2 pr-1 min-h-0">
-                            <!-- 空狀態 -->
-                            <div id="shared-placeholder" class="text-center py-10 bg-slate-50 rounded border border-slate-200 text-slate-400 text-xs" data-i18n="share_placeholder_text">
-                                尚未分享任何檔案。趕快利用上方選項選取檔案/資料夾吧！
+                    <div class="flex-1 flex flex-col min-h-0 space-y-4">
+                        <div>
+                            <span class="text-xs font-bold text-slate-500 mb-2 block" data-i18n="share_list_title">● 您目前正在與公眾分享的目錄與項目：</span>
+                            <div id="shared-items-list" class="space-y-2 pr-1">
+                                <!-- 空狀態 -->
+                                <div id="shared-placeholder" class="text-center py-6 bg-slate-50 rounded border border-slate-200 text-slate-400 text-xs" data-i18n="share_placeholder_text">
+                                    尚未分享任何檔案。趕快利用上方選項選取檔案/資料夾吧！
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 新增：離線歷史紀錄區（記得我正在分享什麼，支援一鍵續種） -->
+                        <div class="border-t border-slate-200 pt-3 flex-1 flex flex-col min-h-0">
+                            <span class="text-xs font-bold text-slate-500 mb-2 block flex items-center gap-1">
+                                <i data-lucide="history" class="h-3.5 w-3.5 text-slate-400"></i>
+                                <span data-i18n="share_history_title">● 離線歷史共享紀錄 (支援一鍵續種，重新整理後免重設網址)：</span>
+                            </span>
+                            <div id="shared-history-list" class="flex-1 overflow-auto space-y-2 pr-1 min-h-0">
+                                <!-- 歷史共享項目渲染處 -->
+                                <div class="text-center py-6 bg-slate-50/50 rounded border border-dashed border-slate-200 text-slate-400 text-xs">
+                                    目前沒有離線的歷史共享記錄。
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -262,13 +283,13 @@
                 <span id="status-dl-speed" class="font-mono text-[11px]">↓ 0.00 KB/S.</span>
             </div>
 
-            <!-- 在線人數 -->
+            <!-- 在線人數 (MQTT真實心跳計數) -->
             <div class="flex items-center space-x-2 bg-white/60 px-4 py-0.5 rounded border border-[#cac7bf] shadow-sm">
                 <i data-lucide="users" class="h-3.5 w-3.5 foxy-text-purple"></i>
                 <span id="status-online-users" class="font-bold text-[11px]">1 人在線 (真實)</span>
             </div>
 
-            <!-- 右側設定與說明圖示 -->
+            <!-- 右側設定與說明圖示 (包含語言選單彈窗) -->
             <div class="flex items-center space-x-3 relative">
                 <!-- 設定齒輪按鈕 -->
                 <button onclick="toggleSettingsMenu(event)" class="hover:text-slate-800 transition-colors focus:outline-none" title="設定">
@@ -300,7 +321,7 @@
                         </div>
                     </div>
                     <div class="mt-3 pt-2 border-t border-[#b5b2a9] text-[9px] text-slate-500 text-center">
-                        FOXY Web 2.0 Engine v2.6.0
+                        FOXY Web 2.0 Engine v2.7.0
                     </div>
                 </div>
 
@@ -416,6 +437,13 @@
                 share_list_title: "● 您目前正在與公眾分享的目錄與項目：",
                 share_placeholder_text: "尚未分享任何檔案。趕快利用上方選項選取檔案/資料夾吧！",
                 
+                // 離線紀錄與瀏覽功能
+                share_history_title: "● 離線歷史共享紀錄 (支援一鍵續種，重新整理後免重設網址)：",
+                browse_all_btn: "瀏覽全部",
+                browse_broadcasting: "正在向全球在線用戶拉取資源，加載 P2P 共享目錄中...",
+                reseed_btn: "一鍵續種",
+                history_placeholder_text: "目前沒有離線的歷史共享記錄。",
+
                 // 播放器相關
                 player_title: "FOXY 影音多媒體播放器",
                 player_loading: "正在緩衝 P2P 串流數據，請稍候...",
@@ -501,6 +529,13 @@
                 share_list_title: "● Directories and items you are currently sharing with the public:",
                 share_placeholder_text: "No files shared yet. Select files/folders above to start sharing!",
                 
+                // History & Browse
+                share_history_title: "● Offline History (Click to resume seeding instantly without losing original URL):",
+                browse_all_btn: "Browse All",
+                browse_broadcasting: "Requesting file index from global peers, compiling live P2P directory...",
+                reseed_btn: "Resume",
+                history_placeholder_text: "No offline history shared yet.",
+
                 // Player Translate
                 player_title: "FOXY Media Player",
                 player_loading: "Buffering P2P stream data, please wait...",
@@ -593,6 +628,7 @@
             // 4. 重繪動態列表與狀態
             updateConnectionUI();
             renderSharedItems();
+            renderSharedHistory();
             updateOnlineCountUI();
         }
 
@@ -666,6 +702,7 @@
                     showToast(i18n[currentLang].alert_join_p2p, "success");
 
                     mqttClient.subscribe('foxy_web_p2p_v3/search');
+                    mqttClient.subscribe('foxy_web_p2p_v3/browse'); // 訂閱目錄瀏覽請求
                     mqttClient.subscribe('foxy_web_p2p_v3/presence');
                     mqttClient.subscribe(`foxy_web_p2p_v3/response/${myClientId}`);
                 });
@@ -689,6 +726,10 @@
                                 peerLastSeen[data.clientId] = Date.now();
                                 updateOnlineCountUI();
                             }
+                        } else if (topic === 'foxy_web_p2p_v3/browse') {
+                            // 收到他人的目錄拉取請求 -> 自動回傳我目前正在做種的全部檔案索引
+                            if (data.from === myClientId) return;
+                            handleBrowseRequest(data);
                         } else if (topic === 'foxy_web_p2p_v3/search') {
                             if (data.from === myClientId) return;
                             handleSearchRequest(data);
@@ -902,7 +943,67 @@
             }
         }
 
-        // 渲染搜尋結果 (升級：如果檔案類型為音訊/影片/圖片，傳輸操作加入「預覽」按鈕)
+        // 新增：處理全球目錄瀏覽拉取
+        function handleBrowseRequest(request) {
+            // 如果我正在共享檔案，直接把全部檔案包裝成 Response 丟回去給請求者
+            if (mySharedFilesIndex.length > 0) {
+                const responsePayload = {
+                    senderId: myClientId,
+                    files: mySharedFilesIndex.map(f => ({
+                        name: f.name,
+                        size: f.size,
+                        path: f.path,
+                        magnetURI: f.magnetURI,
+                        infoHash: f.infoHash
+                    }))
+                };
+                mqttClient.publish(request.replyTo, JSON.stringify(responsePayload));
+            }
+        }
+
+        // 新增：發送 P2P 廣播，免搜尋拉取全世界目前正在共享的清單！
+        function triggerPublicBrowse() {
+            switchTab('search');
+
+            const resultsTable = document.getElementById('search-results-list');
+            resultsTable.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-20 text-slate-500">
+                        <div class="flex items-center justify-center gap-1.5 mb-2">
+                            <span class="h-2.5 w-2.5 rounded-full bg-blue-500 animate-bounce"></span>
+                            <span class="h-2.5 w-2.5 rounded-full bg-blue-500 animate-bounce [animation-delay:0.15s]"></span>
+                            <span class="h-2.5 w-2.5 rounded-full bg-blue-500 animate-bounce [animation-delay:0.3s]"></span>
+                        </div>
+                        <p class="text-[11px]" data-i18n="browse_broadcasting">${i18n[currentLang].browse_broadcasting}</p>
+                    </td>
+                </tr>
+            `;
+
+            const payload = {
+                from: myClientId,
+                replyTo: `foxy_web_p2p_v3/response/${myClientId}`
+            };
+
+            // 對全頻道廣播「目錄請求」
+            mqttClient.publish('foxy_web_p2p_v3/browse', JSON.stringify(payload));
+
+            // 4秒超時
+            setTimeout(() => {
+                if (resultsTable.children.length === 1 && resultsTable.firstElementChild.innerHTML.includes('animate-bounce')) {
+                    resultsTable.innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center py-20 text-slate-400">
+                                <i data-lucide="info" class="h-10 w-10 mx-auto mb-2 opacity-30 text-slate-500"></i>
+                                <p class="text-xs">${i18n[currentLang].no_match_found}</p>
+                            </td>
+                        </tr>
+                    `;
+                    lucide.createIcons();
+                }
+            }, 4000);
+        }
+
+        // 渲染搜尋結果 (包含預覽)
         function handleSearchResponse(response) {
             const resultsTable = document.getElementById('search-results-list');
             const placeholder = document.getElementById('search-placeholder');
@@ -912,7 +1013,6 @@
                 const rowId = `search-${file.infoHash}-${hashCode(file.path)}`;
                 if (document.getElementById(rowId)) return;
 
-                // 檢查是否為可串流/可預覽的媒體副檔名
                 const ext = file.name.split('.').pop().toLowerCase();
                 const isMedia = ['mp3', 'wav', 'mp4', 'webm', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'm4a', 'aac', 'ogg'].includes(ext);
 
@@ -1025,7 +1125,7 @@
             }
         });
 
-        // 共享處理
+        // 共享做種處理 (增加本地 localStorage 記憶體註冊)
         function processSharedItems(fileList, isFolder) {
             if (!client) {
                 showToast("⚠️ P2P Engine is still initializing. Please wait 1-2 seconds and try again.", "warning");
@@ -1081,7 +1181,18 @@
                         });
                     });
 
+                    // 關鍵功能：將此成功的共享做種中繼資料存入 localStorage，實現跨頁面記憶！
+                    saveSharedHistory({
+                        name: torrent.name,
+                        length: torrent.length,
+                        filesCount: torrent.files.length,
+                        magnetURI: torrent.magnetURI,
+                        infoHash: torrent.infoHash,
+                        isFolder: isFolder
+                    });
+
                     renderSharedItems();
+                    renderSharedHistory();
                     const successMsg = i18n[currentLang].seed_success.replace('{name}', shareName);
                     showToast(successMsg, "success");
                 });
@@ -1101,7 +1212,85 @@
             }
         }
 
-        // 渲染列表
+        // 新增：儲存共享紀錄至 LocalStorage
+        function saveSharedHistory(item) {
+            let history = JSON.parse(localStorage.getItem('foxy_shared_history') || '[]');
+            // 避免重複寫入相同 Hash 的種子
+            if (!history.find(h => h.infoHash === item.infoHash)) {
+                history.push(item);
+                localStorage.setItem('foxy_shared_history', JSON.stringify(history));
+            }
+        }
+
+        // 新增：從 LocalStorage 刪除歷史共享紀錄
+        function deleteSharedHistory(infoHash) {
+            let history = JSON.parse(localStorage.getItem('foxy_shared_history') || '[]');
+            history = history.filter(h => h.infoHash !== infoHash);
+            localStorage.setItem('foxy_shared_history', JSON.stringify(history));
+            renderSharedHistory();
+        }
+
+        // 新增：渲染歷史清單（具備「一鍵續種」按鈕）
+        function renderSharedHistory() {
+            const list = document.getElementById('shared-history-list');
+            if (!list) return;
+
+            const history = JSON.parse(localStorage.getItem('foxy_shared_history') || '[]');
+            // 排除目前「正在連線共享中」的種子，只留下離線的
+            const offlineHistory = history.filter(h => !mySharedTorrents[h.infoHash]);
+
+            if (offlineHistory.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center py-6 bg-slate-50/50 rounded border border-dashed border-slate-200 text-slate-400 text-xs">
+                        ${i18n[currentLang].history_placeholder_text}
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = "";
+            offlineHistory.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "bg-slate-50/60 border border-slate-200 border-dashed rounded p-2.5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 text-xs opacity-75 hover:opacity-100 transition-opacity";
+                
+                const filesCountText = i18n[currentLang].contains_files.replace('{count}', item.filesCount);
+
+                div.innerHTML = `
+                    <div class="truncate max-w-md w-full">
+                        <span class="font-bold text-slate-600 block truncate" title="${item.name}">${item.name}</span>
+                        <div class="flex items-center space-x-2 mt-1 flex-wrap gap-y-1">
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 border border-slate-300">離線 (Offline)</span>
+                            <span class="text-[10px] text-slate-500">${filesCountText}</span>
+                            <span class="text-[10px] text-slate-400">${i18n[currentLang].total_size_label} ${formatBytes(item.length)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 flex-shrink-0">
+                        <!-- 一鍵續種：點擊自動引發選取，並透過相同中繼資料極速續種 -->
+                        <button onclick="triggerReseed('${item.isFolder}')" class="px-2.5 py-1 bg-gradient-to-b from-slate-600 to-slate-700 text-white rounded text-[11px] font-bold shadow hover:brightness-105 active:scale-95 transition-all flex items-center gap-1">
+                            <i data-lucide="refresh-cw" class="h-3 w-3 animate-spin [animation-duration:8s]"></i>
+                            <span>${i18n[currentLang].reseed_btn}</span>
+                        </button>
+                        <button onclick="deleteSharedHistory('${item.infoHash}')" class="p-1 text-slate-400 hover:text-red-500" title="刪除此歷史記錄">
+                            <i data-lucide="trash" class="h-3.5 w-3.5"></i>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        // 新增：觸發一鍵續種
+        function triggerReseed(isFolder) {
+            showToast(currentLang === 'zh' ? '💡 請在隨後彈出的選框中，重新點選原來的檔案/資料夾以激活續種！' : '💡 Please select the original folder/file in the file picker to resume seeding.', "info");
+            if (isFolder === 'true' || isFolder === true) {
+                triggerFolderInputClick();
+            } else {
+                triggerFileInputClick();
+            }
+        }
+
+        // 渲染正在做種列表
         function renderSharedItems() {
             const list = document.getElementById('shared-items-list');
             if (!list) return;
@@ -1110,7 +1299,7 @@
             
             if (keys.length === 0 && tempSharedProcessing.length === 0) {
                 list.innerHTML = `
-                    <div id="shared-placeholder" class="text-center py-10 bg-slate-50 rounded border border-slate-200 text-slate-400 text-xs" data-i18n="share_placeholder_text">
+                    <div id="shared-placeholder" class="text-center py-6 bg-slate-50 rounded border border-slate-200 text-slate-400 text-xs" data-i18n="share_placeholder_text">
                         ${i18n[currentLang].share_placeholder_text}
                     </div>
                 `;
@@ -1172,7 +1361,7 @@
             lucide.createIcons();
         }
 
-        // 停止共享
+        // 停止共享 (從在線移開，但不主動從歷史記錄刪除)
         function stopSharing(hash) {
             const torrent = mySharedTorrents[hash];
             if (!torrent) return;
@@ -1188,6 +1377,7 @@
                 }
 
                 renderSharedItems();
+                renderSharedHistory(); // 重新顯示至離線歷史區
                 showToast(i18n[currentLang].sharing_stopped, "info");
             });
         }
